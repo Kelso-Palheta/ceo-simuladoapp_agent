@@ -154,3 +154,9 @@ def exportar_para_notion(demanda: str, resposta: str) -> dict:
             "url": None,
             "mensagem": f"Erro ao sincronizar com o Notion: {str(e)}"
         }
+
+def criar_pagina_deliberacao(resposta: str, demanda: str, canal: str = "Dashboard Web") -> tuple[bool, str]:
+    """Wrapper compatível que retorna (sucesso: bool, mensagem: str)."""
+    res = exportar_para_notion(demanda, resposta)
+    return res["sucesso"], res["mensagem"]
+
