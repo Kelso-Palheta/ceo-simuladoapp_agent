@@ -152,14 +152,28 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
         chave = agentes_normalizados[0]
         agente_escolhido, titulo_agente = MAPA_AGENTES[chave]
         
-        tarefa_direta = Task(
-            description=(
+        if chave == "ceo":
+            desc_tarefa = (
+                f"Reunião 1-a-1 confidencial e estratégica diretamente com o fundador do SimuladoApp.\n\n"
+                f"Demanda / Ideia do Fundador: \"{demanda_usuario}\"\n\n"
+                f"Como CEO & Co-fundador Executivo:\n"
+                f"- Faça um sparring estratégico rigoroso (visão Hormozi, Lean e SaaS unit economics).\n"
+                f"- Dê feedbacks honestos sobre a viabilidade, riscos e pontos cegos.\n"
+                f"- Ajude a lapidar a ideia e sugira como direcionar a demanda para os outros diretores (CTO, Growth, CFO, etc.) quando estiver pronta."
+            )
+            out_esperado = "Feedback estratégico 1-a-1 executivo, direto e construtivo do CEO."
+        else:
+            desc_tarefa = (
                 f"O fundador solicitou uma demanda direta para o seu cargo ({titulo_agente}):\n\n"
                 f"\"{demanda_usuario}\"\n\n"
                 f"Responda diretamente e de forma especializada como {titulo_agente}, sem rodeios, "
                 f"entregando o formato técnico/específico da sua área (ex: Mini-PRD para CTO, Roteiro para Conteúdo, DRE para CFO)."
-            ),
-            expected_output=f"Parecer e entregável especializado direto do {titulo_agente}.",
+            )
+            out_esperado = f"Parecer e entregável especializado direto do {titulo_agente}."
+
+        tarefa_direta = Task(
+            description=desc_tarefa,
+            expected_output=out_esperado,
             agent=agente_escolhido
         )
         

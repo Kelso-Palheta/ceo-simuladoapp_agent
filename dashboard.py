@@ -160,19 +160,36 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
     with col_input:
         demanda_padrao = "" if preset == "Personalizado..." else preset
         
-        # Entrada de áudio pelo microfone
-        gravacao_audio = st.audio_input("🎙️ Falar demanda por voz (microfone):")
-        if gravacao_audio is not None:
-            if "audio_processado" not in st.session_state or st.session_state.get("ultimo_audio_nome") != gravacao_audio.name:
-                with st.spinner("🎙️ Transcrevendo áudio via Whisper Large v3..."):
-                    try:
-                        bytes_audio = gravacao_audio.read()
-                        texto_transcrito = transcrever_audio_bytes(bytes_audio, nome_arquivo=gravacao_audio.name or "audio.wav")
-                        st.session_state["texto_audio"] = texto_transcrito
-                        st.session_state["ultimo_audio_nome"] = gravacao_audio.name
-                        st.success(f"🗣️ Transcrição: \"{texto_transcrito}\"")
-                    except Exception as e:
-                        st.error(f"Erro ao transcrever áudio: {e}")
+        # Entrada de áudio por microfone ou upload
+        tab_mic, tab_up = st.tabs(["🎙️ Gravar Microfone", "📁 Enviar Arquivo de Áudio"])
+        
+        with tab_mic:
+            gravacao_audio = st.audio_input("Grave sua fala diretamente:")
+            if gravacao_audio is not None:
+                if "audio_processado" not in st.session_state or st.session_state.get("ultimo_audio_nome") != gravacao_audio.name:
+                    with st.spinner("🎙️ Transcrevendo áudio via Whisper Large v3..."):
+                        try:
+                            bytes_audio = gravacao_audio.read()
+                            texto_transcrito = transcrever_audio_bytes(bytes_audio, nome_arquivo=gravacao_audio.name or "audio.wav")
+                            st.session_state["texto_audio"] = texto_transcrito
+                            st.session_state["ultimo_audio_nome"] = gravacao_audio.name
+                            st.success(f"🗣️ Transcrição: \"{texto_transcrito}\"")
+                        except Exception as e:
+                            st.error(f"Erro ao transcrever áudio: {e}")
+        
+        with tab_up:
+            arquivo_subido = st.file_uploader("Ou envie um áudio gravado (.mp3, .m4a, .wav, .ogg, .oga):", type=["mp3", "m4a", "wav", "ogg", "oga"])
+            if arquivo_subido is not None:
+                if st.session_state.get("ultimo_up_nome") != arquivo_subido.name:
+                    with st.spinner("🎙️ Transcrevendo áudio via Whisper..."):
+                        try:
+                            bytes_up = arquivo_subido.read()
+                            texto_up = transcrever_audio_bytes(bytes_up, nome_arquivo=arquivo_subido.name)
+                            st.session_state["texto_audio"] = texto_up
+                            st.session_state["ultimo_up_nome"] = arquivo_subido.name
+                            st.success(f"🗣️ Transcrição: \"{texto_up}\"")
+                        except Exception as e:
+                            st.error(f"Erro ao transcrever: {e}")
 
         valor_inicial = st.session_state.get("texto_audio", demanda_padrao)
         demanda = st.text_area(
