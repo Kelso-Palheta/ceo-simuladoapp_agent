@@ -241,10 +241,18 @@ legal_agent = Agent(
 
 async def executar_consulta_estrategica(demanda_usuario: str) -> str:
     tarefa_ceo = Task(
-        description=f"O fundador solicitou a seguinte demanda: '{demanda_usuario}'. "
-                    f"Analise a solicitação, delegue mentalmente as partes técnicas, pedagógicas, financeiras, jurídicas/compliance, de suporte/CS ou de crescimento aos especialistas "
-                    f"e forneça um Plano Executivo formatado e direto.",
-        expected_output="Plano Executivo em tópicos claros (com PRD técnico, especificações pedagógicas/UX, demonstrativo financeiro/split, minutas jurídicas, scripts de CS ou plano de crescimento quando aplicável).",
+        description=(
+            f"O fundador solicitou a seguinte demanda estratégica: '{demanda_usuario}'.\n\n"
+            f"Como CEO & Orquestrador da Mesa Diretora:\n"
+            f"1. Analise o contexto e convoque os pareceres técnicos, pedagógicos, financeiros, jurídicos, de growth, de conteúdo ou de suporte pertinentes.\n"
+            f"2. Estruture a resposta estritamente no padrão executivo consolidado:\n"
+            f"   - **1. Veredito Executivo & Direcionamento Geral**\n"
+            f"   - **2. Contribuição dos Especialistas Convocados** (Mini-PRD do CTO, UX/BNCC do CPO, Campanhas de Growth, Roteiro de Conteúdo, Scripts de CS, DRE/Split 33% do CFO, Parecer LGPD do Legal quando aplicáveis)\n"
+            f"   - **3. Plano de Ação Tático: O que Você (Fundador) Deve Fazer** (Checklist de validação, aprovação e execução humana)\n"
+            f"   - **4. Automações & Regras Internas** (Gatilhos de sistema, rotinas de conciliação, queries, cronjobs e integrações)\n"
+            f"   - **5. Alerta de Riscos & Mitigações**"
+        ),
+        expected_output="Plano Executivo Consolidado e direto, seguindo o padrão de 5 blocos com separação nítida entre Ação do Fundador e Automações Internas.",
         agent=ceo_agent
     )
     
