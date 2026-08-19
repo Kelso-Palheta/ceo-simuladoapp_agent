@@ -1,11 +1,12 @@
 import os
 import logging
 import tempfile
+import re
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from database import init_db, salvar_lembrete, listar_lembretes_pendentes, registrar_consulta
-from agents import executar_consulta_estrategica
+from agents import executar_consulta_estrategica, MAPA_AGENTES, normalizar_agente
 from pdf_generator import gerar_pdf
 from transcriber import transcrever_audio
 
@@ -15,6 +16,17 @@ logging.basicConfig(level=logging.INFO)
 
 AUTHORIZED_USER = os.getenv("AUTHORIZED_USER_ID")
 
+def extrair_agente_mencionado(texto: str):
+    """Detecta se o texto começa com uma menção a um agente específico (ex: @cto, @cfo, cto:, etc.)"""
+    match = re.match(r'^[@/]?([a-zA-Z]+)[:\s]+(.*)$', texto.strip(), re.DOTALL)
+    if match:
+        tag = match.group(1).lower()
+        resto = match.group(2).strip()
+        tag_normalizada = normalizar_agente(tag)
+        if tag_normalizada in MAPA_AGENTES:
+            return tag_normalizada, resto
+    return None, texto
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     if AUTHORIZED_USER and user_id != AUTHORIZED_USER:
@@ -23,12 +35,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "👋 Olá! Sou o seu CEO Virtual & Assistente Executivo do SimuladoApp.\n\n"
-        "Comandos e recursos disponíveis:\n"
-        "• 🎙️ *Envie mensagens de voz/áudio* falando sua demanda diretamente.\n"
-        "• 💬 *Envie mensagens de texto* para despachar com a Mesa Diretora.\n"
-        "• `/pdf <demanda>` para gerar um relatório executivo em PDF formatado.\n"
-        "• `/lembrete <texto>` para registrar uma tarefa na memória pessoal.\n"
-        "• `/tarefas` para listar seus lembretes pendentes.",
+        "🏛️ *Mesa Geral (Todos os 8 Diretores):*\n"
+        "• Envie qualquer áudio ou texto direto para a deliberação completa.\n"
+        "• `/pdf <demanda>` para gerar Relatório Executivo em PDF.\n\n"
+        "🎯 *Consultas Diretas (Econômicas e Rápidas):*\n"
+        "• `/cto <demanda>` ou `@cto <texto>` — Tecnologia & Mini-PRD\n"
+        "• `/cfo <demanda>` ou `@cfo <texto>` — Finanças, DRE & Split 33%\n"
+        "• `/growth <demanda>` ou `@growth <texto>` — Tráfego Pago & Meta Ads\n"
+        "• `/conteudo <demanda>` ou `@conteudo <texto>` — Roteiros de Reels & Copy\n"
+        "• `/cpo <demanda>` ou `@cpo <texto>` — Pedagógico, BNCC & UX\n"
+        "• `/cs <demanda>` ou `@cs <texto>` — Suporte & Gatilho de Upsell\n"
+        "• `/legal <demanda>` ou `@legal <texto>` — Jurídico, LGPD & Contratos\n\n"
+        "📋 *Gestão de Tarefas:*\n"
+        "• `/lembrete <texto>` para registrar tarefa.\n"
+        "• `/tarefas` para listar tarefas pendentes.",
         parse_mode="Markdown"
     )
 
@@ -69,8 +89,7 @@ async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "📄 *Uso do comando /pdf:*\n\n"
             "`/pdf Qual a prioridade estratégica da semana?`\n"
-            "`/pdf Gere um relatório financeiro do mês`\n"
-            "`/pdf Crie um plano de marketing para setembro`\n\n"
+            "`/pdf Gere um relatório financeiro do mês`\n\n"
             "A Mesa Diretora vai analisar e entregar um PDF executivo formatado.",
             parse_mode="Markdown"
         )
@@ -102,6 +121,29 @@ async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Erro ao gerar PDF: {e}")
         await update.message.reply_text(f"⚠️ Ocorreu um erro ao gerar o documento: {str(e)}")
 
+async def handle_direto_especialista(update: Update, context: ContextTypes.DEFAULT_TYPE, agente_nome: str):
+    """Handler genérico para comandos /cto, /cfo, /growth, etc."""
+    user_id = str(update.effective_user.id)
+    if AUTHORIZED_USER and user_id != AUTHORIZED_USER:
+        return
+
+    demanda = " ".join(context.args)
+    if not demanda:
+        titulo = MAPA_AGENTES[agente_nome][1]
+        await update.message.reply_text(f"Uso: `/{agente_nome} <sua dúvida técnica ou demanda para {titulo}>`", parse_mode="Markdown")
+        return
+
+    titulo = MAPA_AGENTES[agente_nome][1]
+    await update.message.reply_text(f"⚙️ *Consultando diretamente {titulo}...*", parse_mode="Markdown")
+
+    try:
+        resposta = await executar_consulta_estrategica(demanda, agentes_alvo=agente_nome)
+        resposta_str = str(resposta)
+        registrar_consulta(f"Telegram (/{agente_nome})", demanda, resposta_str)
+        await enviar_resposta_longa(update, resposta_str)
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Erro ao consultar {titulo}: {str(e)}")
+
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Processa mensagens de voz e arquivos de áudio enviados pelo fundador no Telegram."""
     user_id = str(update.effective_user.id)
@@ -111,17 +153,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🎙️ *Ouvindo e transcrevendo seu áudio via Whisper...*", parse_mode="Markdown")
 
     try:
-        # Obtém o arquivo de voz ou áudio
         arquivo_audio = update.message.voice or update.message.audio
         file_obj = await arquivo_audio.get_file()
         
-        # Salva em arquivo temporário
         with tempfile.NamedTemporaryFile(suffix=".oga", delete=False) as temp_file:
             temp_path = temp_file.name
 
         await file_obj.download_to_drive(temp_path)
-
-        # Transcrição via Groq Whisper Large v3
         texto_transcrito = transcrever_audio(temp_path)
         
         if os.path.exists(temp_path):
@@ -131,16 +169,26 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Não consegui compreender o áudio. Por favor, tente falar novamente.")
             return
 
-        await update.message.reply_text(
-            f"🗣️ *Entendi:* \"_{texto_transcrito}_\"\n\n⚙️ *Consultando a Mesa Diretora... Aguarde.*",
-            parse_mode="Markdown"
-        )
-
-        # Executa consulta aos agentes
-        resposta = await executar_consulta_estrategica(texto_transcrito)
-        resposta_str = str(resposta)
-        registrar_consulta("Telegram (Voz)", texto_transcrito, resposta_str)
+        agente_detectado, demanda_real = extrair_agente_mencionado(texto_transcrito)
         
+        if agente_detectado:
+            titulo = MAPA_AGENTES[agente_detectado][1]
+            await update.message.reply_text(
+                f"🗣️ *Entendi:* \"_{texto_transcrito}_\"\n\n🎯 *Direcionando exclusivamente para {titulo}...*",
+                parse_mode="Markdown"
+            )
+            resposta = await executar_consulta_estrategica(demanda_real, agentes_alvo=agente_detectado)
+            canal = f"Telegram (Voz @{agente_detectado})"
+        else:
+            await update.message.reply_text(
+                f"🗣️ *Entendi:* \"_{texto_transcrito}_\"\n\n⚙️ *Consultando a Mesa Diretora Completa...*",
+                parse_mode="Markdown"
+            )
+            resposta = await executar_consulta_estrategica(texto_transcrito)
+            canal = "Telegram (Voz)"
+
+        resposta_str = str(resposta)
+        registrar_consulta(canal, texto_transcrito, resposta_str)
         await enviar_resposta_longa(update, resposta_str)
 
     except Exception as e:
@@ -153,12 +201,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     texto_usuario = update.message.text
-    await update.message.reply_text("⚙️ *Consultando a Mesa Diretora... Aguarde um instante.*", parse_mode="Markdown")
+    agente_detectado, demanda_real = extrair_agente_mencionado(texto_usuario)
 
     try:
-        resposta = await executar_consulta_estrategica(texto_usuario)
+        if agente_detectado:
+            titulo = MAPA_AGENTES[agente_detectado][1]
+            await update.message.reply_text(f"⚙️ *Consultando diretamente {titulo}...*", parse_mode="Markdown")
+            resposta = await executar_consulta_estrategica(demanda_real, agentes_alvo=agente_detectado)
+            canal = f"Telegram (@{agente_detectado})"
+        else:
+            await update.message.reply_text("⚙️ *Consultando a Mesa Diretora Completa...*", parse_mode="Markdown")
+            resposta = await executar_consulta_estrategica(texto_usuario)
+            canal = "Telegram"
+
         resposta_str = str(resposta)
-        registrar_consulta("Telegram", texto_usuario, resposta_str)
+        registrar_consulta(canal, texto_usuario, resposta_str)
         await enviar_resposta_longa(update, resposta_str)
     except Exception as e:
         await update.message.reply_text(f"⚠️ Ocorreu um erro na orquestração: {str(e)}")
@@ -172,6 +229,11 @@ def main():
     app.add_handler(CommandHandler("lembrete", handle_lembrete))
     app.add_handler(CommandHandler("tarefas", handle_tarefas))
     app.add_handler(CommandHandler("pdf", handle_pdf))
+
+    # Comandos individuais para economizar tokens
+    for k in MAPA_AGENTES.keys():
+        app.add_handler(CommandHandler(k, lambda u, c, k=k: handle_direto_especialista(u, c, k)))
+
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

@@ -104,28 +104,120 @@ legal_agent = Agent(
     verbose=False
 )
 
-async def executar_consulta_estrategica(demanda_usuario: str) -> str:
-    tarefa_ceo = Task(
-        description=(
-            f"O fundador solicitou a seguinte demanda estratégica: '{demanda_usuario}'.\n\n"
-            f"Como CEO & Orquestrador da Mesa Diretora, convoque as perspectivas necessárias dos 8 diretores "
-            f"e consolide a resposta estritamente no seguinte padrão executivo:\n"
-            f"1. **Veredito Executivo & Direcionamento Geral** (Alinhamento global e split societário 33/33/33)\n"
-            f"2. **Contribuição dos Especialistas Convocados** (Mini-PRD do CTO, UX do CPO, Campanhas Growth, Roteiro Conteúdo, Scripts CS, DRE CFO ou Parecer Legal)\n"
-            f"3. **Plano de Ação Tático: O que Você (Fundador) Deve Fazer** (Ações práticas e decisões humanas)\n"
-            f"4. **Automações & Regras Internas** (Gatilhos de sistema, rotinas e queries)\n"
-            f"5. **Alerta de Riscos & Mitigações**"
-        ),
-        expected_output="Plano Executivo Consolidado objetivo e direto em 5 seções estruturadas.",
-        agent=ceo_agent
-    )
-    
-    conselho = Crew(
-        agents=[ceo_agent, cto_agent, cpo_agent, cfo_agent, cs_agent, legal_agent, conteudo_agent, growth_agent],
-        tasks=[tarefa_ceo],
-        process=Process.sequential,
-        verbose=False
-    )
-    
-    resultado = await conselho.kickoff_async()
-    return str(resultado)
+MAPA_AGENTES = {
+    "ceo": (ceo_agent, "👑 CEO & Estrategista Chefe"),
+    "cto": (cto_agent, "💻 CTO & Arquiteto Tech"),
+    "cpo": (cpo_agent, "🎓 CPO & Especialista Pedagógico"),
+    "conteudo": (conteudo_agent, "✍️ Head de Conteúdo & Social Media"),
+    "growth": (growth_agent, "📈 Head de Growth & Tráfego"),
+    "cfo": (cfo_agent, "💰 CFO & Controller Financeiro"),
+    "cs": (cs_agent, "🎧 Head de CS & Suporte"),
+    "legal": (legal_agent, "⚖️ Consultor Jurídico & Compliance"),
+}
+
+def normalizar_agente(nome: str) -> str:
+    nome_clean = nome.lower().replace("@", "").replace("/", "").strip()
+    if nome_clean in ["tech", "dev", "ti", "arquitetura"]:
+        return "cto"
+    if nome_clean in ["produto", "pedagogico", "pedagógico", "ux"]:
+        return "cpo"
+    if nome_clean in ["marketing", "trafego", "tráfego", "ads"]:
+        return "growth"
+    if nome_clean in ["reels", "copy", "redes", "social"]:
+        return "conteudo"
+    if nome_clean in ["financeiro", "financas", "finanças", "split"]:
+        return "cfo"
+    if nome_clean in ["suporte", "operacoes", "operações", "retencao", "retenção"]:
+        return "cs"
+    if nome_clean in ["juridico", "jurídico", "lgpd", "compliance", "dpo"]:
+        return "legal"
+    return nome_clean
+
+async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list[str] | str | None = None) -> str:
+    """
+    Executa a demanda com os agentes selecionados ou com toda a Mesa Diretora.
+    Permite economia drástica de tokens ao falar direto com 1 ou poucos especialistas.
+    """
+    # Normalização de agentes_alvo
+    if isinstance(agentes_alvo, str):
+        agentes_alvo = [agentes_alvo]
+        
+    if agentes_alvo:
+        agentes_normalizados = [normalizar_agente(a) for a in agentes_alvo if normalizar_agente(a) in MAPA_AGENTES]
+    else:
+        agentes_normalizados = []
+
+    # CASO 1: Consulta individual direta (Ultra econômico em tokens - 1 único agente)
+    if len(agentes_normalizados) == 1:
+        chave = agentes_normalizados[0]
+        agente_escolhido, titulo_agente = MAPA_AGENTES[chave]
+        
+        tarefa_direta = Task(
+            description=(
+                f"O fundador solicitou uma demanda direta para o seu cargo ({titulo_agente}):\n\n"
+                f"\"{demanda_usuario}\"\n\n"
+                f"Responda diretamente e de forma especializada como {titulo_agente}, sem rodeios, "
+                f"entregando o formato técnico/específico da sua área (ex: Mini-PRD para CTO, Roteiro para Conteúdo, DRE para CFO)."
+            ),
+            expected_output=f"Parecer e entregável especializado direto do {titulo_agente}.",
+            agent=agente_escolhido
+        )
+        
+        tripulacao = Crew(
+            agents=[agente_escolhido],
+            tasks=[tarefa_direta],
+            process=Process.sequential,
+            verbose=False
+        )
+        resultado = await tripulacao.kickoff_async()
+        return f"**[{titulo_agente}]**\n\n{str(resultado)}"
+
+    # CASO 2: Consulta a um subgrupo específico de agentes (ex: CTO + CFO)
+    elif len(agentes_normalizados) > 1 and len(agentes_normalizados) < len(MAPA_AGENTES):
+        agentes_objs = [MAPA_AGENTES[k][0] for k in agentes_normalizados]
+        titulos = ", ".join([MAPA_AGENTES[k][1] for k in agentes_normalizados])
+        
+        tarefa_subgrupo = Task(
+            description=(
+                f"Demanda do fundador: '{demanda_usuario}'.\n\n"
+                f"Especialistas convocados: {titulos}.\n"
+                f"Cada especialista deve fornecer sua contribuição direta e o CEO/Líder deve consolidar um plano rápido."
+            ),
+            expected_output="Parecer integrado dos especialistas convocados.",
+            agent=ceo_agent
+        )
+        
+        tripulacao = Crew(
+            agents=agentes_objs,
+            tasks=[tarefa_subgrupo],
+            process=Process.sequential,
+            verbose=False
+        )
+        resultado = await tripulacao.kickoff_async()
+        return str(resultado)
+
+    # CASO 3: Mesa Completa (Conselho Geral com todos os 8 agentes)
+    else:
+        tarefa_ceo = Task(
+            description=(
+                f"O fundador solicitou a seguinte demanda estratégica: '{demanda_usuario}'.\n\n"
+                f"Como CEO & Orquestrador da Mesa Diretora, convoque as perspectivas necessárias dos 8 diretores "
+                f"e consolide a resposta estritamente no seguinte padrão executivo:\n"
+                f"1. **Veredito Executivo & Direcionamento Geral** (Alinhamento global e split societário 33/33/33)\n"
+                f"2. **Contribuição dos Especialistas Convocados** (Mini-PRD do CTO, UX do CPO, Campanhas Growth, Roteiro Conteúdo, Scripts CS, DRE CFO ou Parecer Legal)\n"
+                f"3. **Plano de Ação Tático: O que Você (Fundador) Deve Fazer** (Ações práticas e decisões humanas)\n"
+                f"4. **Automações & Regras Internas** (Gatilhos de sistema, rotinas e queries)\n"
+                f"5. **Alerta de Riscos & Mitigações**"
+            ),
+            expected_output="Plano Executivo Consolidado objetivo e direto em 5 seções estruturadas.",
+            agent=ceo_agent
+        )
+        
+        conselho = Crew(
+            agents=[ceo_agent, cto_agent, cpo_agent, cfo_agent, cs_agent, legal_agent, conteudo_agent, growth_agent],
+            tasks=[tarefa_ceo],
+            process=Process.sequential,
+            verbose=False
+        )
+        resultado = await conselho.kickoff_async()
+        return str(resultado)

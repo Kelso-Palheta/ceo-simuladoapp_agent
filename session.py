@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import re
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
@@ -13,13 +14,23 @@ from database import (
     listar_lembretes_pendentes,
     registrar_consulta
 )
-from agents import executar_consulta_estrategica
+from agents import executar_consulta_estrategica, MAPA_AGENTES, normalizar_agente
 from pdf_generator import gerar_pdf
 
 load_dotenv()
 init_db()
 
 console = Console()
+
+def extrair_agente_mencionado(texto: str):
+    match = re.match(r'^[@/]?([a-zA-Z]+)[:\s]+(.*)$', texto.strip(), re.DOTALL)
+    if match:
+        tag = match.group(1).lower()
+        resto = match.group(2).strip()
+        tag_normalizada = normalizar_agente(tag)
+        if tag_normalizada in MAPA_AGENTES:
+            return tag_normalizada, resto
+    return None, texto
 
 def exibir_banner():
     banner_text = (
@@ -28,7 +39,7 @@ def exibir_banner():
     )
     console.print(Panel(banner_text, border_style="cyan", expand=False))
     console.print(
-        "[dim]Comandos rápidos: [bold]/lembrete <texto>[/bold], [bold]/tarefas[/bold], [bold]/pdf[/bold], [bold]/sair[/bold] ou digite sua demanda.[/dim]\n"
+        "[dim]Mesa Geral: digite sua demanda | Direto: [bold]@cto[/bold], [bold]@cfo[/bold], [bold]@growth[/bold], [bold]@conteudo[/bold], [bold]@cpo[/bold], [bold]@cs[/bold], [bold]@legal[/bold] | [bold]/tarefas[/bold], [bold]/pdf[/bold], [bold]/sair[/bold][/dim]\n"
     )
 
 def exibir_tarefas():
@@ -47,18 +58,26 @@ def exibir_tarefas():
     console.print(table)
     console.print()
 
-async def processar_demanda(demanda: str, gerar_arquivo_pdf: bool = False):
-    with console.status("[bold green]⏳ Convocando os 8 Diretores da Mesa Executiva...[/bold green]", spinner="dots"):
+async def processar_demanda(demanda: str, agente_alvo: str | None = None, gerar_arquivo_pdf: bool = False):
+    if agente_alvo:
+        titulo = MAPA_AGENTES[agente_alvo][1]
+        msg_status = f"[bold green]⏳ Consultando diretamente {titulo}...[/bold green]"
+    else:
+        titulo = "Mesa Diretora Completa"
+        msg_status = "[bold green]⏳ Convocando os 8 Diretores da Mesa Executiva...[/bold green]"
+
+    with console.status(msg_status, spinner="dots"):
         try:
-            resposta = await executar_consulta_estrategica(demanda)
+            resposta = await executar_consulta_estrategica(demanda, agentes_alvo=agente_alvo)
             resposta_str = str(resposta)
-            registrar_consulta("Terminal (CLI)", demanda, resposta_str)
+            canal = f"Terminal (CLI @{agente_alvo})" if agente_alvo else "Terminal (CLI)"
+            registrar_consulta(canal, demanda, resposta_str)
         except Exception as e:
             console.print(f"[bold red]⚠️ Erro na consulta:[/bold red] {e}")
             return
 
     console.print()
-    console.print(Panel(Markdown(resposta_str), title="[bold yellow]📄 Deliberação da Mesa Diretora[/bold yellow]", border_style="yellow"))
+    console.print(Panel(Markdown(resposta_str), title=f"[bold yellow]📄 Parecer — {titulo}[/bold yellow]", border_style="yellow"))
     
     if gerar_arquivo_pdf:
         try:
@@ -97,12 +116,14 @@ async def loop_principal():
                 partes = entrada.split(" ", 1)
                 if len(partes) > 1 and partes[1].strip():
                     demanda = partes[1].strip()
-                    await processar_demanda(demanda, gerar_arquivo_pdf=True)
+                    agente_det, dem_real = extrair_agente_mencionado(demanda)
+                    await processar_demanda(dem_real, agente_alvo=agente_det, gerar_arquivo_pdf=True)
                 else:
                     console.print("[red]Uso: /pdf <sua demanda estratégica>[/red]\n")
                     
             else:
-                await processar_demanda(entrada, gerar_arquivo_pdf=False)
+                agente_det, dem_real = extrair_agente_mencionado(entrada)
+                await processar_demanda(dem_real, agente_alvo=agente_det, gerar_arquivo_pdf=False)
                 
         except KeyboardInterrupt:
             console.print("\n[bold yellow]Sessão interrompida. Até logo![/bold yellow]")

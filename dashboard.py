@@ -109,6 +109,41 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
     col_input, col_preset = st.columns([2.5, 1])
     
     with col_preset:
+        st.markdown("**🎯 Destinatário da Demanda:**")
+        destinatario = st.selectbox(
+            "Com quem deseja despachar?",
+            [
+                "🏛️ Mesa Completa (Todos os 8)",
+                "👑 CEO (Estratégia & Split 33%)",
+                "💻 CTO (Tecnologia & Mini-PRD)",
+                "💰 CFO (Finanças & DRE)",
+                "📈 Growth (Campanhas & Tráfego)",
+                "✍️ Conteúdo (Reels & Copy)",
+                "🎓 CPO (Pedagógico & UX)",
+                "🎧 CS (Retenção & Suporte)",
+                "⚖️ Legal (LGPD & Contratos)"
+            ]
+        )
+        
+        mapa_destinatario = {
+            "🏛️ Mesa Completa (Todos os 8)": None,
+            "👑 CEO (Estratégia & Split 33%)": "ceo",
+            "💻 CTO (Tecnologia & Mini-PRD)": "cto",
+            "💰 CFO (Finanças & DRE)": "cfo",
+            "📈 Growth (Campanhas & Tráfego)": "growth",
+            "✍️ Conteúdo (Reels & Copy)": "conteudo",
+            "🎓 CPO (Pedagógico & UX)": "cpo",
+            "🎧 CS (Retenção & Suporte)": "cs",
+            "⚖️ Legal (LGPD & Contratos)": "legal"
+        }
+        agente_alvo = mapa_destinatario[destinatario]
+        
+        if agente_alvo:
+            st.info(f"⚡ Modo Rápido & Econômico: Consulta direta com {destinatario.split('(')[0].strip()}")
+        else:
+            st.caption("Convocará todo o conselho para um plano integrado.")
+
+        st.divider()
         st.markdown("**Sugestões Rápidas:**")
         preset = st.selectbox(
             "Selecione um briefing pronto:",
@@ -146,23 +181,26 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
             height=110,
             placeholder="Ex: Preciso de um plano para reduzir o churn da assinatura de R$ 4,99..."
         )
-        btn_executar = st.button("🚀 Enviar para o Conselho Executivo", type="primary", use_container_width=True)
+        label_btn = f"🚀 Enviar para {destinatario.split('(')[0].strip()}"
+        btn_executar = st.button(label_btn, type="primary", use_container_width=True)
 
     if btn_executar and demanda.strip():
-        with st.spinner("⏳ Convocando os 8 diretores e gerando o Plano Executivo integrado..."):
+        msg_spinner = f"⏳ Consultando {destinatario.split('(')[0].strip()}..."
+        with st.spinner(msg_spinner):
             try:
-                # Executa de forma síncrona/assíncrona no loop
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                resultado = loop.run_until_complete(executar_consulta_estrategica(demanda))
+                resultado = loop.run_until_complete(executar_consulta_estrategica(demanda, agentes_alvo=agente_alvo))
                 loop.close()
                 
                 resultado_str = str(resultado)
-                registrar_consulta("Dashboard Web", demanda, resultado_str)
+                canal_tag = f"Dashboard Web ({destinatario.split('(')[0].strip()})"
+                registrar_consulta(canal_tag, demanda, resultado_str)
                 st.session_state["ultimo_resultado"] = resultado_str
                 st.session_state["ultima_demanda"] = demanda
-                st.success("✅ Deliberação da Mesa Diretora concluída com sucesso!")
+                st.success("✅ Resposta gerada com sucesso!")
             except Exception as e:
+                st.error(f"⚠️ Erro ao processar com os agentes: {e}")
                 st.error(f"⚠️ Erro ao processar com os agentes: {e}")
 
     # Exibe o último resultado gerado
