@@ -4,3 +4,4 @@ litellm
 python-dotenv
 aiofiles
 aiosqlite
+fpdf2
