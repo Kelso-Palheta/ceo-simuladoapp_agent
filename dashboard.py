@@ -398,26 +398,73 @@ elif aba_selecionada == "📜 Histórico de Decisões":
                 st.markdown("**Conteúdo do Parecer:**")
                 st.markdown(resposta)
 
-# ----------------- ABA 4: MEMBROS DO CONSELHO -----------------
+# ----------------- ABA 4: MEMBROS DO CONSELHO & CONFIGURAÇÃO -----------------
 elif aba_selecionada == "👥 Membros do Conselho":
-    st.markdown("<div class='main-header'>👥 Composição do Conselho Executivo</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Conheça os 8 diretores especialistas autônomos dedicados ao SimuladoApp.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-header'>👥 Conselho Executivo & Personalização de Diretrizes</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Visualize e edite as diretrizes, preços de planos, metas de CPL/CAC e regras de negócio de cada diretor.</div>", unsafe_allow_html=True)
     
-    membros = [
-        ("👑 CEO & Estrategista Chefe", "Escala enxuta, métricas unitárias e governança do Split 33/33/33.", "Alex Hormozi, Eric Ries, Brian Chesky"),
-        ("💻 CTO & Arquiteto Tech", "Arquitetura Python/Django, MySQL, Celery e Visão Computacional OpenCV.", "John Carmack, Martin Fowler, Kelsey Hightower"),
-        ("🎓 CPO & Especialista Pedagógico", "UX/UI em sala de aula, alinhamento BNCC/SAEB e TTFV < 5min.", "Salman Khan, Tony Fadell, Julie Zhuo"),
-        ("💰 CFO & Controller Financeiro", "Unit Economics, liquidez, conciliação quinzenal e proteção de caixa.", "Warren Buffett, Ray Dalio, David Sacks"),
-        ("🎧 Head de CS & Suporte", "Encantamento, redução de churn < 5% e scripts humanizados de WhatsApp.", "Tony Hsieh, Nick Mehta"),
-        ("⚖️ Consultor Jurídico & DPO", "LGPD escolar, compliance, proteção da marca no INPI e contratos SaaS.", "Brad Smith, Ann Cavoukian"),
-        ("✍️ Head de Conteúdo & Copywriter", "Comunidade 'Devolve seus fins de semana' e roteiros de Reels/Shorts.", "GaryVee, Nicolas Cole, Ann Handley"),
-        ("📈 Head de Growth & Performance", "Aquisição com CPL <= R$ 0,75, campanhas Meta Ads e sazonalidade escolar.", "Sean Ellis, Russell Brunson, David Ogilvy")
-    ]
+    from database import obter_configuracoes_agentes, salvar_configuracao_agente, restaurar_padrao_agentes
     
-    cols = st.columns(2)
-    for i, (cargo, missao, inspiracoes) in enumerate(membros):
-        with cols[i % 2]:
-            with st.container(border=True):
-                st.subheader(cargo)
-                st.markdown(f"**Missão:** {missao}")
-                st.caption(f"🧠 **Mentalidade de Referência:** {inspiracoes}")
+    tab_editor, tab_cards = st.tabs(["🎛️ Editar Diretrizes dos Agentes", "📋 Cartões do Conselho"])
+    
+    configs_atuais = obter_configuracoes_agentes()
+    
+    with tab_editor:
+        st.info("💡 **Dica do Fundador:** As alterações salvas aqui passam a valer imediatamente para todas as próximas consultas no Dashboard, Telegram e Terminal!")
+        
+        col_sel, col_reset = st.columns([3, 1])
+        with col_sel:
+            agente_chave_sel = st.selectbox(
+                "Selecione o Diretor para Editar:",
+                list(configs_atuais.keys()),
+                format_func=lambda k: f"{k.upper()} — {configs_atuais[k]['cargo']}"
+            )
+        with col_reset:
+            st.write("")
+            st.write("")
+            if st.button("🔄 Restaurar Padrões de Fábrica", use_container_width=True):
+                restaurar_padrao_agentes()
+                st.success("Diretrizes de todos os agentes restauradas para o padrão inicial!")
+                st.rerun()
+
+        dados_agente = configs_atuais[agente_chave_sel]
+        
+        with st.form(f"form_editar_{agente_chave_sel}"):
+            st.subheader(f"Configuração do {dados_agente['cargo']}")
+            st.caption(f"Última atualização registrada: {dados_agente.get('data_atualizacao', 'Padrão Inicial')}")
+            
+            novo_cargo = st.text_input("Título / Cargo Oficial:", value=dados_agente["cargo"])
+            nova_meta = st.text_area("Meta Principal (Goal):", value=dados_agente["meta"], height=90)
+            novas_diretrizes = st.text_area(
+                "Diretrizes, Preços de Planos, Regras de Negócio e Métricas (Backstory):",
+                value=dados_agente["diretrizes"],
+                height=180,
+                help="Você pode alterar preços (ex: R$ 4,99/mês), regras de split, modelos de desconto, stacks tecnológicas ou rotinas de CS."
+            )
+            
+            btn_salvar_config = st.form_submit_button("💾 Salvar Novas Diretrizes deste Diretor", type="primary")
+            
+            if btn_salvar_config:
+                salvar_configuracao_agente(agente_chave_sel, novo_cargo.strip(), nova_meta.strip(), novas_diretrizes.strip())
+                st.success(f"✅ Diretrizes do {novo_cargo} atualizadas com sucesso e persistidas no banco!")
+                st.rerun()
+
+    with tab_cards:
+        membros_info = [
+            ("👑 CEO & Estrategista Chefe", "Escala enxuta, métricas unitárias e governança do Split 33/33/33.", "Alex Hormozi, Eric Ries, Brian Chesky"),
+            ("💻 CTO & Arquiteto Tech", "Arquitetura Python/Django, MySQL, Celery e Visão Computacional OpenCV.", "John Carmack, Martin Fowler, Kelsey Hightower"),
+            ("🎓 CPO & Especialista Pedagógico", "UX/UI em sala de aula, alinhamento BNCC/SAEB e TTFV < 5min.", "Salman Khan, Tony Fadell, Julie Zhuo"),
+            ("💰 CFO & Controller Financeiro", "Unit Economics, liquidez, conciliação quinzenal e proteção de caixa.", "Warren Buffett, Ray Dalio, David Sacks"),
+            ("🎧 Head de CS & Suporte", "Encantamento, redução de churn < 5% e scripts humanizados de WhatsApp.", "Tony Hsieh, Nick Mehta"),
+            ("⚖️ Consultor Jurídico & DPO", "LGPD escolar, compliance, proteção da marca no INPI e contratos SaaS.", "Brad Smith, Ann Cavoukian"),
+            ("✍️ Head de Conteúdo & Copywriter", "Comunidade 'Devolve seus fins de semana' e roteiros de Reels/Shorts.", "GaryVee, Nicolas Cole, Ann Handley"),
+            ("📈 Head de Growth & Performance", "Aquisição com CPL <= R$ 0,75, campanhas Meta Ads e sazonalidade escolar.", "Sean Ellis, Russell Brunson, David Ogilvy")
+        ]
+        
+        cols = st.columns(2)
+        for i, (cargo, missao, inspiracoes) in enumerate(membros_info):
+            with cols[i % 2]:
+                with st.container(border=True):
+                    st.subheader(cargo)
+                    st.markdown(f"**Missão:** {missao}")
+                    st.caption(f"🧠 **Mentalidade de Referência:** {inspiracoes}")
