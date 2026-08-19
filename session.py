@@ -39,7 +39,7 @@ def exibir_banner():
     )
     console.print(Panel(banner_text, border_style="cyan", expand=False))
     console.print(
-        "[dim]Mesa Geral: digite sua demanda | Direto: [bold]@cto[/bold], [bold]@cfo[/bold], [bold]@growth[/bold], [bold]@conteudo[/bold], [bold]@cpo[/bold], [bold]@cs[/bold], [bold]@legal[/bold] | [bold]/tarefas[/bold], [bold]/pdf[/bold], [bold]/sair[/bold][/dim]\n"
+        "[dim]Mesa Geral: digite sua demanda | Direto: [bold]@tecnologia[/bold] (@cto), [bold]@financeiro[/bold] (@cfo), [bold]@suporte[/bold] (@cs), [bold]@trafego[/bold], [bold]@conteudo[/bold], [bold]@pedagogico[/bold], [bold]@juridico[/bold], [bold]@ceo[/bold] | [bold]/tarefas[/bold], [bold]/pdf[/bold], [bold]/sair[/bold][/dim]\n"
     )
 
 def exibir_tarefas():

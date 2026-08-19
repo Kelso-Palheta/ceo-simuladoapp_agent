@@ -57,36 +57,49 @@ def instanciar_agentes():
     return agentes
 
 MAPA_NOMES_ICONES = {
-    "ceo": "👑 CEO & Estrategista Chefe",
-    "cto": "💻 CTO & Arquiteto Tech",
-    "cpo": "🎓 CPO & Especialista Pedagógico",
-    "conteudo": "✍️ Head de Conteúdo & Social Media",
-    "growth": "📈 Head de Growth & Tráfego",
-    "cfo": "💰 CFO & Controller Financeiro",
-    "cs": "🎧 Head de CS & Suporte",
-    "legal": "⚖️ Consultor Jurídico & Compliance",
+    "ceo": "👑 CEO & Estratégia",
+    "cto": "💻 Tecnologia (CTO)",
+    "cfo": "💰 Financeiro (CFO)",
+    "cs": "🎧 Suporte (CS)",
+    "growth": "📈 Tráfego & Marketing (Growth)",
+    "conteudo": "✍️ Conteúdo & Redes",
+    "cpo": "🎓 Pedagógico & Produto (CPO)",
+    "legal": "⚖️ Jurídico & Compliance (Legal)",
 }
 
 # Alias leve para compatibilidade com bot.py, session.py e dashboard.py
-# Formato: {chave: (None, titulo)} — usado apenas para lookup de nomes/ícones
+# Formato: {chave: (None, titulo)} — usado para lookup de nomes e ícones
 MAPA_AGENTES = {k: (None, v) for k, v in MAPA_NOMES_ICONES.items()}
 
 def normalizar_agente(nome: str) -> str:
+    """Normaliza nomes e siglas em português ou termos técnicos para a chave interna do agente."""
     nome_clean = nome.lower().replace("@", "").replace("/", "").strip()
-    if nome_clean in ["tech", "dev", "ti", "arquitetura"]:
+    
+    # Tecnologia / CTO
+    if nome_clean in ["cto", "tecnologia", "tech", "dev", "desenvolvimento", "ti", "arquitetura", "sistema", "programacao", "programação"]:
         return "cto"
-    if nome_clean in ["produto", "pedagogico", "pedagógico", "ux"]:
-        return "cpo"
-    if nome_clean in ["marketing", "trafego", "tráfego", "ads"]:
-        return "growth"
-    if nome_clean in ["reels", "copy", "redes", "social"]:
-        return "conteudo"
-    if nome_clean in ["financeiro", "financas", "finanças", "split"]:
+    # Financeiro / CFO
+    if nome_clean in ["cfo", "financeiro", "financas", "finanças", "caixa", "split", "faturamento", "dre"]:
         return "cfo"
-    if nome_clean in ["suporte", "operacoes", "operações", "retencao", "retenção"]:
+    # Suporte / CS
+    if nome_clean in ["cs", "suporte", "atendimento", "operacoes", "operações", "retencao", "retenção", "cliente", "posvenda", "pós-venda"]:
         return "cs"
-    if nome_clean in ["juridico", "jurídico", "lgpd", "compliance", "dpo"]:
+    # Tráfego / Marketing / Growth
+    if nome_clean in ["growth", "trafego", "tráfego", "marketing", "ads", "anuncios", "anúncios", "meta", "vendas"]:
+        return "growth"
+    # Conteúdo / Redes / Copy
+    if nome_clean in ["conteudo", "conteúdo", "reels", "copy", "redes", "social", "roteiro", "roteiros", "instagram"]:
+        return "conteudo"
+    # Pedagógico / Produto / CPO
+    if nome_clean in ["cpo", "pedagogico", "pedagógico", "produto", "bncc", "saeb", "didatico", "didático", "ux", "ensino"]:
+        return "cpo"
+    # Jurídico / Legal
+    if nome_clean in ["legal", "juridico", "jurídico", "lgpd", "compliance", "dpo", "contrato", "contratos", "leis", "regulacao", "regulação"]:
         return "legal"
+    # CEO
+    if nome_clean in ["ceo", "estrategia", "estratégia", "fundador", "sociedade"]:
+        return "ceo"
+        
     return nome_clean
 
 async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list[str] | str | None = None) -> str:

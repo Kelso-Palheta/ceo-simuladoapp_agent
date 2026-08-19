@@ -117,34 +117,34 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
             "Com quem deseja despachar?",
             [
                 "🏛️ Mesa Completa (Todos os 8)",
-                "👑 CEO (Estratégia & Split 33%)",
-                "💻 CTO (Tecnologia & Mini-PRD)",
-                "💰 CFO (Finanças & DRE)",
-                "📈 Growth (Campanhas & Tráfego)",
-                "✍️ Conteúdo (Reels & Copy)",
-                "🎓 CPO (Pedagógico & UX)",
-                "🎧 CS (Retenção & Suporte)",
-                "⚖️ Legal (LGPD & Contratos)"
+                "👑 CEO (Estratégia & Decisões)",
+                "💻 Tecnologia (CTO - Dev & Sistema)",
+                "💰 Financeiro (CFO - Caixa & Split)",
+                "🎧 Suporte (CS - Atendimento & Alunos)",
+                "📈 Tráfego & Marketing (Growth - Ads)",
+                "✍️ Conteúdo (Roteiros & Redes)",
+                "🎓 Pedagógico & Produto (CPO - BNCC)",
+                "⚖️ Jurídico & Compliance (Legal - LGPD)"
             ]
         )
         
         mapa_destinatario = {
             "🏛️ Mesa Completa (Todos os 8)": None,
-            "👑 CEO (Estratégia & Split 33%)": "ceo",
-            "💻 CTO (Tecnologia & Mini-PRD)": "cto",
-            "💰 CFO (Finanças & DRE)": "cfo",
-            "📈 Growth (Campanhas & Tráfego)": "growth",
-            "✍️ Conteúdo (Reels & Copy)": "conteudo",
-            "🎓 CPO (Pedagógico & UX)": "cpo",
-            "🎧 CS (Retenção & Suporte)": "cs",
-            "⚖️ Legal (LGPD & Contratos)": "legal"
+            "👑 CEO (Estratégia & Decisões)": "ceo",
+            "💻 Tecnologia (CTO - Dev & Sistema)": "cto",
+            "💰 Financeiro (CFO - Caixa & Split)": "cfo",
+            "🎧 Suporte (CS - Atendimento & Alunos)": "cs",
+            "📈 Tráfego & Marketing (Growth - Ads)": "growth",
+            "✍️ Conteúdo (Roteiros & Redes)": "conteudo",
+            "🎓 Pedagógico & Produto (CPO - BNCC)": "cpo",
+            "⚖️ Jurídico & Compliance (Legal - LGPD)": "legal"
         }
         agente_alvo = mapa_destinatario[destinatario]
         
         if agente_alvo == "ceo":
             st.info("🤝 **Modo Sparring 1-a-1:** Alinhamento direto com o CEO antes de despachar para os outros diretores.")
         elif agente_alvo:
-            st.info(f"⚡ **Consulta Direta:** Parecer cirúrgico de {destinatario.split('(')[0].strip()}")
+            st.info(f"⚡ **Consulta Direta:** Parecer especializado de {destinatario.split('(')[0].strip()}")
         else:
             st.caption("Convocará todo o conselho para um plano executivo integrado.")
 
@@ -451,14 +451,14 @@ elif aba_selecionada == "👥 Membros do Conselho":
 
     with tab_cards:
         membros_info = [
-            ("👑 CEO & Estrategista Chefe", "Escala enxuta, métricas unitárias e governança do Split 33/33/33.", "Alex Hormozi, Eric Ries, Brian Chesky"),
-            ("💻 CTO & Arquiteto Tech", "Arquitetura Python/Django, MySQL, Celery e Visão Computacional OpenCV.", "John Carmack, Martin Fowler, Kelsey Hightower"),
-            ("🎓 CPO & Especialista Pedagógico", "UX/UI em sala de aula, alinhamento BNCC/SAEB e TTFV < 5min.", "Salman Khan, Tony Fadell, Julie Zhuo"),
-            ("💰 CFO & Controller Financeiro", "Unit Economics, liquidez, conciliação quinzenal e proteção de caixa.", "Warren Buffett, Ray Dalio, David Sacks"),
-            ("🎧 Head de CS & Suporte", "Encantamento, redução de churn < 5% e scripts humanizados de WhatsApp.", "Tony Hsieh, Nick Mehta"),
-            ("⚖️ Consultor Jurídico & DPO", "LGPD escolar, compliance, proteção da marca no INPI e contratos SaaS.", "Brad Smith, Ann Cavoukian"),
-            ("✍️ Head de Conteúdo & Copywriter", "Comunidade 'Devolve seus fins de semana' e roteiros de Reels/Shorts.", "GaryVee, Nicolas Cole, Ann Handley"),
-            ("📈 Head de Growth & Performance", "Aquisição com CPL <= R$ 0,75, campanhas Meta Ads e sazonalidade escolar.", "Sean Ellis, Russell Brunson, David Ogilvy")
+            ("👑 CEO & Estratégia", "Decisões executivas, alinhamento 1-a-1 e governança do Split 33/33/33.", "Alex Hormozi, Eric Ries, Brian Chesky"),
+            ("💻 Tecnologia (CTO)", "Arquitetura Python/Django, MySQL, Celery e Visão Computacional OpenCV.", "John Carmack, Martin Fowler, Kelsey Hightower"),
+            ("💰 Financeiro (CFO)", "Unit Economics, liquidez, conciliação quinzenal e proteção de caixa.", "Warren Buffett, Ray Dalio, David Sacks"),
+            ("🎧 Suporte (CS)", "Encantamento, redução de churn < 5% e scripts humanizados de WhatsApp.", "Tony Hsieh, Nick Mehta"),
+            ("📈 Tráfego & Marketing (Growth)", "Aquisição com CPL <= R$ 0,75, campanhas Meta Ads e sazonalidade escolar.", "Sean Ellis, Russell Brunson, David Ogilvy"),
+            ("✍️ Conteúdo & Redes", "Comunidade 'Devolve seus fins de semana' e roteiros de Reels/Shorts.", "GaryVee, Nicolas Cole, Ann Handley"),
+            ("🎓 Pedagógico & Produto (CPO)", "UX/UI em sala de aula, alinhamento BNCC/SAEB e TTFV < 5min.", "Salman Khan, Tony Fadell, Julie Zhuo"),
+            ("⚖️ Jurídico & Compliance (Legal)", "LGPD escolar, compliance, proteção da marca no INPI e contratos SaaS.", "Brad Smith, Ann Cavoukian")
         ]
         
         cols = st.columns(2)

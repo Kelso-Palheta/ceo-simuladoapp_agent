@@ -47,14 +47,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/pdf <demanda>` para gerar Relatório Executivo em PDF.\n"
         "• `/historico` para consultar as últimas deliberações.\n\n"
         "🎯 *Consultas Diretas (Econômicas e Rápidas):*\n"
-        "• `/ceo <ideia>` ou `@ceo <texto>` — Sparring 1-a-1 e Alinhamento\n"
-        "• `/cto <demanda>` ou `@cto <texto>` — Tecnologia & Mini-PRD\n"
-        "• `/cfo <demanda>` ou `@cfo <texto>` — Finanças, DRE & Split 33%\n"
-        "• `/growth <demanda>` ou `@growth <texto>` — Tráfego Pago & Meta Ads\n"
-        "• `/conteudo <demanda>` ou `@conteudo <texto>` — Roteiros de Reels & Copy\n"
-        "• `/cpo <demanda>` ou `@cpo <texto>` — Pedagógico, BNCC & UX\n"
-        "• `/cs <demanda>` ou `@cs <texto>` — Suporte & Gatilho de Upsell\n"
-        "• `/legal <demanda>` ou `@legal <texto>` — Jurídico, LGPD & Contratos\n\n"
+        "• `/ceo <ideia>` ou `@ceo` — Sparring Estratégico 1-a-1 & Alinhamento\n"
+        "• `/tecnologia <demanda>` ou `@tecnologia` (ou `/cto`) — Tecnologia, Dev & Mini-PRD\n"
+        "• `/financeiro <demanda>` ou `@financeiro` (ou `/cfo`) — Finanças, DRE & Split 33%\n"
+        "• `/suporte <demanda>` ou `@suporte` (ou `/cs`) — Atendimento, Retenção & Alunos\n"
+        "• `/trafego <demanda>` ou `@trafego` (ou `/marketing`, `/growth`) — Tráfego Pago & Meta Ads\n"
+        "• `/conteudo <demanda>` ou `@conteudo` — Roteiros de Reels, Redes & Copy\n"
+        "• `/pedagogico <demanda>` ou `@pedagogico` (ou `/cpo`) — Provas, BNCC, SAEB & UX\n"
+        "• `/juridico <demanda>` ou `@juridico` (ou `/legal`) — LGPD, Contratos & Compliance\n\n"
         "📋 *Gestão de Tarefas:*\n"
         "• `/lembrete <texto>` para registrar tarefa.\n"
         "• `/tarefas` para listar tarefas pendentes.",
@@ -304,9 +304,33 @@ def main():
     app.add_handler(CommandHandler("historico", handle_historico))
     app.add_handler(CommandHandler("pdf", handle_pdf))
 
-    # Comandos individuais para economizar tokens
-    for k in MAPA_AGENTES.keys():
-        app.add_handler(CommandHandler(k, lambda u, c, k=k: handle_direto_especialista(u, c, k)))
+    # Comandos individuais para economizar tokens (Português + Siglas)
+    COMANDOS_ALIAS = {
+        "ceo": "ceo",
+        "tecnologia": "cto",
+        "tech": "cto",
+        "dev": "cto",
+        "cto": "cto",
+        "financeiro": "cfo",
+        "financas": "cfo",
+        "cfo": "cfo",
+        "suporte": "cs",
+        "atendimento": "cs",
+        "cs": "cs",
+        "trafego": "growth",
+        "marketing": "growth",
+        "growth": "growth",
+        "conteudo": "conteudo",
+        "copy": "conteudo",
+        "pedagogico": "cpo",
+        "produto": "cpo",
+        "cpo": "cpo",
+        "juridico": "legal",
+        "legal": "legal",
+    }
+
+    for cmd, chave_agente in COMANDOS_ALIAS.items():
+        app.add_handler(CommandHandler(cmd, lambda u, c, k=chave_agente: handle_direto_especialista(u, c, k)))
 
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
