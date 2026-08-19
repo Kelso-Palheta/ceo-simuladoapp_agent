@@ -67,6 +67,10 @@ MAPA_NOMES_ICONES = {
     "legal": "⚖️ Consultor Jurídico & Compliance",
 }
 
+# Alias leve para compatibilidade com bot.py, session.py e dashboard.py
+# Formato: {chave: (None, titulo)} — usado apenas para lookup de nomes/ícones
+MAPA_AGENTES = {k: (None, v) for k, v in MAPA_NOMES_ICONES.items()}
+
 def normalizar_agente(nome: str) -> str:
     nome_clean = nome.lower().replace("@", "").replace("/", "").strip()
     if nome_clean in ["tech", "dev", "ti", "arquitetura"]:
