@@ -9,3 +9,5 @@ streamlit
 rich
 notion-client
 groq
+pypdf
+python-docx

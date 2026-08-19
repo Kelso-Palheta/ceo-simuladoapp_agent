@@ -1,8 +1,6 @@
 import streamlit as st
 import asyncio
 import os
-import io
-from dotenv import load_dotenv
 from database import (
     init_db,
     salvar_lembrete,
@@ -12,90 +10,95 @@ from database import (
     registrar_consulta,
     listar_historico_consultas
 )
-from agents import executar_consulta_estrategica
+from agents import executar_consulta_estrategica, MAPA_AGENTES
 from pdf_generator import gerar_pdf
-from notion_sync import exportar_para_notion, is_notion_configurado
+from notion_sync import criar_pagina_deliberacao
 from transcriber import transcrever_audio_bytes
+from document_reader import extrair_texto_documento
 
-load_dotenv()
-init_db()
-
+# Configuração da Página
 st.set_page_config(
-    page_title="SimuladoApp — Mesa Diretora",
+    page_title="SimuladoApp | Mesa Diretora Executiva",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada
+# Inicializa Banco de Dados
+init_db()
+
+# Senha de proteção
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "simulado2026")
+
+# Estilização CSS Customizada (Dark Slate Executive Theme)
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.2rem;
         font-weight: 700;
-        color: #F8FAFC;
+        color: #1E293B;
         margin-bottom: 0.2rem;
     }
     .sub-header {
-        font-size: 1.0rem;
-        color: #94A3B8;
+        font-size: 1.05rem;
+        color: #64748B;
         margin-bottom: 1.5rem;
     }
-    .director-badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-right: 6px;
+    .card-metric {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
     }
-    .ceo-badge { background-color: #3B82F6; color: white; }
-    .cfo-badge { background-color: #10B981; color: white; }
-    .cto-badge { background-color: #8B5CF6; color: white; }
-    .cpo-badge { background-color: #F59E0B; color: white; }
+    .stButton>button {
+        border-radius: 6px;
+        font-weight: 600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Autenticação Simples
-SENHA_CONFIGURADA = os.getenv("DASHBOARD_PASSWORD", "simulado2026")
-
+# ----------------- CONTROLE DE ACESSO -----------------
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
-def tela_login():
+if not st.session_state["autenticado"]:
     st.markdown("<div class='main-header'>🏛️ SimuladoApp — Acesso Executivo</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Autenticação restrita para o fundador e diretoria.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Painel de Governança e Inteligência do Conselho de Diretores.</div>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        with st.form("login_form"):
-            senha = st.text_input("Senha de Acesso", type="password", placeholder="Digite sua senha...")
-            submit = st.form_submit_button("Entrar no Painel", use_container_width=True)
-            if submit:
-                if senha == SENHA_CONFIGURADA:
+    col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
+    with col_l2:
+        with st.form("form_login"):
+            senha_digitada = st.text_input("Chave de Acesso da Mesa Diretora:", type="password")
+            btn_entrar = st.form_submit_button("Entrar no Painel Executivo", use_container_width=True)
+            
+            if btn_entrar:
+                if senha_digitada == DASHBOARD_PASSWORD:
                     st.session_state["autenticado"] = True
+                    st.success("Acesso autorizado com sucesso!")
                     st.rerun()
                 else:
-                    st.error("❌ Senha incorreta.")
-
-if not st.session_state["autenticado"]:
-    tela_login()
+                    st.error("Chave de acesso incorreta.")
     st.stop()
 
-# Barra Lateral
+# ----------------- SIDEBAR DE NAVEGAÇÃO -----------------
 with st.sidebar:
-    st.title("🏛️ Mesa Diretora")
-    st.caption("Conselho Executivo de IA do SimuladoApp")
+    st.title("🏛️ SimuladoApp")
+    st.caption("Conselho Executivo de IA")
     
     aba_selecionada = st.radio(
         "Navegação:",
-        ["💬 Mesa Redonda (Chat)", "📋 Quadro de Tarefas", "📜 Histórico de Decisões", "👥 Membros do Conselho"]
+        [
+            "💬 Mesa Redonda (Chat)",
+            "📋 Quadro de Tarefas",
+            "📜 Histórico de Decisões",
+            "👥 Membros do Conselho"
+        ]
     )
     
     st.divider()
-    st.markdown("**Status do Sistema:**")
-    st.success("🟢 8 Agentes Ativos")
-    st.info("⚡ LLM: Groq (Llama 3.3 70B)")
+    st.caption("⚡ **Split Societário:** 33,33% S1 / 33,33% S2 / 33,33% Caixa")
+    st.caption("🎯 **North Star:** TTFV < 5min | Margem > 80%")
     
     if st.button("Sair da Sessão", use_container_width=True):
         st.session_state["autenticado"] = False
@@ -104,7 +107,7 @@ with st.sidebar:
 # ----------------- ABA 1: MESA REDONDA -----------------
 if aba_selecionada == "💬 Mesa Redonda (Chat)":
     st.markdown("<div class='main-header'>💬 Mesa Redonda com o Conselho Executivo</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Despache uma demanda estratégica para ser analisada e sintetizada pela diretoria.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Despache demandas estratégicas, alinhe teses 1-a-1 com o CEO ou peça revisões de documentos.</div>", unsafe_allow_html=True)
     
     col_input, col_preset = st.columns([2.5, 1])
     
@@ -138,10 +141,12 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
         }
         agente_alvo = mapa_destinatario[destinatario]
         
-        if agente_alvo:
-            st.info(f"⚡ Modo Rápido & Econômico: Consulta direta com {destinatario.split('(')[0].strip()}")
+        if agente_alvo == "ceo":
+            st.info("🤝 **Modo Sparring 1-a-1:** Alinhamento direto com o CEO antes de despachar para os outros diretores.")
+        elif agente_alvo:
+            st.info(f"⚡ **Consulta Direta:** Parecer cirúrgico de {destinatario.split('(')[0].strip()}")
         else:
-            st.caption("Convocará todo o conselho para um plano integrado.")
+            st.caption("Convocará todo o conselho para um plano executivo integrado.")
 
         st.divider()
         st.markdown("**Sugestões Rápidas:**")
@@ -160,8 +165,8 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
     with col_input:
         demanda_padrao = "" if preset == "Personalizado..." else preset
         
-        # Entrada de áudio por microfone ou upload
-        tab_mic, tab_up = st.tabs(["🎙️ Gravar Microfone", "📁 Enviar Arquivo de Áudio"])
+        # Abas de Entrada: Microfone, Áudio Gravado, Documento Anexado
+        tab_mic, tab_up, tab_doc = st.tabs(["🎙️ Gravar Microfone", "📁 Enviar Áudio", "📄 Anexar Documento"])
         
         with tab_mic:
             gravacao_audio = st.audio_input("Grave sua fala diretamente:")
@@ -178,7 +183,7 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
                             st.error(f"Erro ao transcrever áudio: {e}")
         
         with tab_up:
-            arquivo_subido = st.file_uploader("Ou envie um áudio gravado (.mp3, .m4a, .wav, .ogg, .oga):", type=["mp3", "m4a", "wav", "ogg", "oga"])
+            arquivo_subido = st.file_uploader("Envie arquivo de áudio gravado (.mp3, .m4a, .wav, .ogg, .oga):", type=["mp3", "m4a", "wav", "ogg", "oga"])
             if arquivo_subido is not None:
                 if st.session_state.get("ultimo_up_nome") != arquivo_subido.name:
                     with st.spinner("🎙️ Transcrevendo áudio via Whisper..."):
@@ -191,33 +196,58 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
                         except Exception as e:
                             st.error(f"Erro ao transcrever: {e}")
 
+        with tab_doc:
+            doc_anexado = st.file_uploader(
+                "Anexe um documento para revisão, crítica ou refatoração (.pdf, .docx, .txt, .md, .csv, .json):",
+                type=["pdf", "docx", "txt", "md", "csv", "json"]
+            )
+            if doc_anexado is not None:
+                if st.session_state.get("ultimo_doc_nome") != doc_anexado.name:
+                    with st.spinner(f"📄 Extraindo texto de {doc_anexado.name}..."):
+                        bytes_doc = doc_anexado.read()
+                        texto_doc = extrair_texto_documento(bytes_doc, doc_anexado.name)
+                        st.session_state["texto_doc_anexado"] = texto_doc
+                        st.session_state["ultimo_doc_nome"] = doc_anexado.name
+                        st.success(f"✅ Arquivo '{doc_anexado.name}' carregado ({len(texto_doc)} caracteres)!")
+                        with st.expander("Visualizar conteúdo extraído"):
+                            st.text(texto_doc[:2000] + ("..." if len(texto_doc) > 2000 else ""))
+
         valor_inicial = st.session_state.get("texto_audio", demanda_padrao)
         demanda = st.text_area(
-            "Descreva a demanda para a Mesa Diretora:",
+            "Descreva a demanda ou instruções para a reunião:",
             value=valor_inicial,
             height=110,
-            placeholder="Ex: Preciso de um plano para reduzir o churn da assinatura de R$ 4,99..."
+            placeholder="Ex: Revise o documento em anexo e aponte pontos cegos / crie um plano para..."
         )
-        label_btn = f"🚀 Enviar para {destinatario.split('(')[0].strip()}"
+        
+        label_btn = f"🚀 Despachar com {destinatario.split('(')[0].strip()}"
         btn_executar = st.button(label_btn, type="primary", use_container_width=True)
 
-    if btn_executar and demanda.strip():
+    if btn_executar and (demanda.strip() or st.session_state.get("texto_doc_anexado")):
+        # Prepara a demanda final incorporando o documento caso anexado
+        doc_texto = st.session_state.get("texto_doc_anexado", "")
+        doc_nome = st.session_state.get("ultimo_doc_nome", "documento")
+        
+        if doc_texto:
+            demanda_completa = f"{demanda.strip()}\n\n--- DOCUMENTO ANEXADO PARA ANÁLISE ({doc_nome}) ---\n{doc_texto}"
+        else:
+            demanda_completa = demanda.strip()
+
         msg_spinner = f"⏳ Consultando {destinatario.split('(')[0].strip()}..."
         with st.spinner(msg_spinner):
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                resultado = loop.run_until_complete(executar_consulta_estrategica(demanda, agentes_alvo=agente_alvo))
+                resultado = loop.run_until_complete(executar_consulta_estrategica(demanda_completa, agentes_alvo=agente_alvo))
                 loop.close()
                 
                 resultado_str = str(resultado)
                 canal_tag = f"Dashboard Web ({destinatario.split('(')[0].strip()})"
-                registrar_consulta(canal_tag, demanda, resultado_str)
+                registrar_consulta(canal_tag, demanda if demanda.strip() else f"Análise de {doc_nome}", resultado_str)
                 st.session_state["ultimo_resultado"] = resultado_str
-                st.session_state["ultima_demanda"] = demanda
+                st.session_state["ultima_demanda"] = demanda if demanda.strip() else f"Análise de {doc_nome}"
                 st.success("✅ Resposta gerada com sucesso!")
             except Exception as e:
-                st.error(f"⚠️ Erro ao processar com os agentes: {e}")
                 st.error(f"⚠️ Erro ao processar com os agentes: {e}")
 
     # Exibe o último resultado gerado
@@ -227,14 +257,14 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
         dem = st.session_state["ultima_demanda"]
         
         st.subheader("📄 Síntese Executiva da Reunião")
-        st.markdown(f"**Demanda original:** *{dem}*")
+        st.markdown(f"**Demanda:** *{dem}*")
         
         # Ações de Exportação
         col_exp1, col_exp2, col_exp3 = st.columns(3)
         
         with col_exp1:
             st.download_button(
-                label="📥 Baixar como Markdown (.md)",
+                label="📥 Baixar Markdown (.md)",
                 data=res,
                 file_name="plano_executivo_simuladoapp.md",
                 mime="text/markdown",
@@ -249,25 +279,25 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
                 st.download_button(
                     label="📄 Baixar Relatório em PDF",
                     data=bytes_pdf,
-                    file_name="relatorio_executivo_simuladoapp.pdf",
+                    file_name="plano_executivo_simuladoapp.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
                 if os.path.exists(caminho_pdf):
                     os.remove(caminho_pdf)
-            except Exception as ex:
-                st.warning(f"PDF indisponível no momento: {ex}")
+            except Exception as e_pdf:
+                st.error(f"Erro ao gerar PDF: {e_pdf}")
                 
         with col_exp3:
-            if st.button("🚀 Sincronizar com Notion", use_container_width=True):
-                with st.spinner("Enviando para o Notion..."):
-                    resp_notion = exportar_para_notion(dem, res)
-                    if resp_notion["sucesso"]:
-                        st.success(f"Página criada no Notion! [Abrir Página]({resp_notion['url']})")
+            if st.button("📓 Sincronizar com Notion", use_container_width=True):
+                with st.spinner("Sincronizando com o Notion..."):
+                    sucesso, msg_notion = criar_pagina_deliberacao(res, dem, canal="Dashboard Web")
+                    if sucesso:
+                        st.success(f"✅ {msg_notion}")
                     else:
-                        st.warning(resp_notion["mensagem"])
-
-        # Exibição do Conteúdo Formatado
+                        st.error(f"⚠️ {msg_notion}")
+                        
+        st.markdown("---")
         st.markdown(res)
 
 # ----------------- ABA 2: QUADRO DE TAREFAS -----------------
@@ -314,7 +344,7 @@ elif aba_selecionada == "📋 Quadro de Tarefas":
 # ----------------- ABA 3: HISTÓRICO DE DECISÕES -----------------
 elif aba_selecionada == "📜 Histórico de Decisões":
     st.markdown("<div class='main-header'>📜 Histórico de Deliberações</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Linha do tempo de todas as decisões e despachos emitidos pela Mesa Diretora.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Linha do tempo de todas as decisões com download de PDF, Markdown e envio ao Notion a qualquer momento.</div>", unsafe_allow_html=True)
     
     historico = listar_historico_consultas(limite=50)
     
@@ -322,11 +352,50 @@ elif aba_selecionada == "📜 Histórico de Decisões":
         st.info("Nenhum histórico registrado até o momento.")
     else:
         for h_id, canal, demanda, resposta, data_reg in historico:
-            with st.expander(f"🕒 [{data_reg}] [{canal}] {demanda[:80]}..."):
+            with st.expander(f"🕒 [{data_reg}] [{canal}] {demanda[:75]}..."):
                 st.markdown(f"**Canal de Origem:** `{canal}` | **Data:** `{data_reg}`")
-                st.markdown(f"**Demanda Completa:**\n> {demanda}")
+                st.markdown(f"**Demanda Registrada:**\n> {demanda}")
+                
+                # Ações Rápidas de Download e Notion para cada item do histórico
+                col_h1, col_h2, col_h3 = st.columns(3)
+                with col_h1:
+                    st.download_button(
+                        label="📥 Baixar Markdown (.md)",
+                        data=resposta,
+                        file_name=f"deliberacao_{h_id}.md",
+                        mime="text/markdown",
+                        key=f"dl_md_{h_id}",
+                        use_container_width=True
+                    )
+                with col_h2:
+                    try:
+                        pdf_path = gerar_pdf(resposta, demanda)
+                        with open(pdf_path, "rb") as f_hpdf:
+                            pdf_bytes = f_hpdf.read()
+                        st.download_button(
+                            label="📄 Baixar PDF Executivo",
+                            data=pdf_bytes,
+                            file_name=f"deliberacao_{h_id}.pdf",
+                            mime="application/pdf",
+                            key=f"dl_pdf_{h_id}",
+                            use_container_width=True
+                        )
+                        if os.path.exists(pdf_path):
+                            os.remove(pdf_path)
+                    except Exception as err_pdf:
+                        st.caption(f"PDF indisponível: {err_pdf}")
+                        
+                with col_h3:
+                    if st.button("📓 Enviar ao Notion", key=f"btn_notion_{h_id}", use_container_width=True):
+                        with st.spinner("Sincronizando com o Notion..."):
+                            ok, msg_n = criar_pagina_deliberacao(resposta, demanda, canal=canal)
+                            if ok:
+                                st.success(f"✅ {msg_n}")
+                            else:
+                                st.error(f"⚠️ {msg_n}")
+                                
                 st.divider()
-                st.markdown("**Parecer da Diretoria:**")
+                st.markdown("**Conteúdo do Parecer:**")
                 st.markdown(resposta)
 
 # ----------------- ABA 4: MEMBROS DO CONSELHO -----------------

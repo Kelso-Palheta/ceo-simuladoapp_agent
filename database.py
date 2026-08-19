@@ -2,11 +2,25 @@ import sqlite3
 from datetime import datetime
 import os
 
-DB_NAME = os.getenv("DB_PATH", "simulado_memory.db")
+def get_db_path() -> str:
+    """Retorna o caminho correto do banco de dados para sincronizar Telegram e Dashboard."""
+    if os.getenv("DB_PATH"):
+        return os.getenv("DB_PATH")
+    if os.path.exists("/app/data"):
+        return "/app/data/simulado_memory.db"
+    if os.path.exists("data"):
+        return "data/simulado_memory.db"
+    return "simulado_memory.db"
 
 def get_connection():
     """Retorna uma conexão configurada com WAL mode e timeout seguro para concorrência."""
-    conn = sqlite3.connect(DB_NAME, timeout=15)
+    db_path = get_db_path()
+    # Garante que a pasta pai exista se aplicável
+    dir_name = os.path.dirname(db_path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name, exist_ok=True)
+        
+    conn = sqlite3.connect(db_path, timeout=15)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout = 5000;")
     return conn
