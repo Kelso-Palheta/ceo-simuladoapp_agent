@@ -3,7 +3,7 @@ import logging
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from database import init_db, salvar_lembrete, listar_lembretes_pendentes
+from database import init_db, salvar_lembrete, listar_lembretes_pendentes, registrar_consulta
 from agents import executar_consulta_estrategica
 from pdf_generator import gerar_pdf
 
@@ -78,6 +78,7 @@ async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Consulta a Mesa Diretora
         resposta = await executar_consulta_estrategica(demanda)
         resposta_str = str(resposta)
+        registrar_consulta("Telegram (/pdf)", demanda, resposta_str)
 
         # Gera o PDF
         caminho_pdf = gerar_pdf(resposta_str, demanda)
@@ -111,7 +112,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         resposta = await executar_consulta_estrategica(texto_usuario)
-        await enviar_resposta_longa(update, str(resposta))
+        resposta_str = str(resposta)
+        registrar_consulta("Telegram", texto_usuario, resposta_str)
+        await enviar_resposta_longa(update, resposta_str)
     except Exception as e:
         await update.message.reply_text(f"⚠️ Ocorreu um erro na orquestração: {str(e)}")
 

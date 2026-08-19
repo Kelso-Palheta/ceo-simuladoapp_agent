@@ -3,11 +3,23 @@ version: '3.8'
 services:
   simuladoapp-bot:
     build: .
+    command: python bot.py
     restart: always
     env_file:
       - .env
     volumes:
-      - simulado_data:/app/data
+      - db_data:/app/data
+
+  simuladoapp-dashboard:
+    build: .
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+    restart: always
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - db_data:/app/data
 
 volumes:
-  simulado_data:
+  db_data:

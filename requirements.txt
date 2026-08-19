@@ -5,3 +5,6 @@ python-dotenv
 aiofiles
 aiosqlite
 fpdf2
+streamlit
+rich
+notion-client
