@@ -1,0 +1,15 @@
+[Unit]
+Description=SimuladoApp Multiagent Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/simuladoapp_agent
+ExecStart=/root/simuladoapp_agent/venv/bin/python bot.py
+Restart=always
+RestartSec=10
+EnvironmentFile=/root/simuladoapp_agent/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  simuladoapp-bot:
+    build: .
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - simulado_data:/app/data
+
+volumes:
+  simulado_data:

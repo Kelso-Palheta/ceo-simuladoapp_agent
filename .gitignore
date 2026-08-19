@@ -1,0 +1,23 @@
+# Variáveis de ambiente sensíveis
+.env
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Bancos de dados locais
+*.db
+*.sqlite3
+simulado_memory.db
+
+# Logs e IDEs
+*.log
+.DS_Store
+.vscode/
+.idea/
