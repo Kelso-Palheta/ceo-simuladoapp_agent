@@ -15,6 +15,7 @@ from database import (
 from agents import executar_consulta_estrategica
 from pdf_generator import gerar_pdf
 from notion_sync import exportar_para_notion, is_notion_configurado
+from transcriber import transcrever_audio_bytes
 
 load_dotenv()
 init_db()
@@ -123,7 +124,28 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
     
     with col_input:
         demanda_padrao = "" if preset == "Personalizado..." else preset
-        demanda = st.text_area("Descreva a demanda para a Mesa Diretora:", value=demanda_padrao, height=110, placeholder="Ex: Preciso de um plano para reduzir o churn da assinatura de R$ 4,99...")
+        
+        # Entrada de áudio pelo microfone
+        gravacao_audio = st.audio_input("🎙️ Falar demanda por voz (microfone):")
+        if gravacao_audio is not None:
+            if "audio_processado" not in st.session_state or st.session_state.get("ultimo_audio_nome") != gravacao_audio.name:
+                with st.spinner("🎙️ Transcrevendo áudio via Whisper Large v3..."):
+                    try:
+                        bytes_audio = gravacao_audio.read()
+                        texto_transcrito = transcrever_audio_bytes(bytes_audio, nome_arquivo=gravacao_audio.name or "audio.wav")
+                        st.session_state["texto_audio"] = texto_transcrito
+                        st.session_state["ultimo_audio_nome"] = gravacao_audio.name
+                        st.success(f"🗣️ Transcrição: \"{texto_transcrito}\"")
+                    except Exception as e:
+                        st.error(f"Erro ao transcrever áudio: {e}")
+
+        valor_inicial = st.session_state.get("texto_audio", demanda_padrao)
+        demanda = st.text_area(
+            "Descreva a demanda para a Mesa Diretora:",
+            value=valor_inicial,
+            height=110,
+            placeholder="Ex: Preciso de um plano para reduzir o churn da assinatura de R$ 4,99..."
+        )
         btn_executar = st.button("🚀 Enviar para o Conselho Executivo", type="primary", use_container_width=True)
 
     if btn_executar and demanda.strip():
