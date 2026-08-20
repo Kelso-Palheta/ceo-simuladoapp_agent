@@ -1,0 +1,113 @@
+{
+  "skill_name": "prd-manager",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Preciso criar um PRD para um app de gestão de tarefas para equipes remotas. O app vai funcionar no celular e no computador. A ideia principal é que times pequenos (até 15 pessoas) consigam organizar sprints semanais, ver o progresso de cada membro em tempo real e receber notificações inteligentes que não perturbem o foco. Nosso diferencial é o modo 'foco profundo' que bloqueia notificações durante sessões de trabalho. Pode gerar o PRD completo pra mim?",
+      "expected_output": "Um arquivo PRD.md completo com todas as seções principais: visão geral, problema, personas, requisitos funcionais (incluindo MVP vs. roadmap), requisitos não-funcionais, KPIs, roadmap de fases, riscos e dependências.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "arquivo_prd_criado",
+          "description": "Um arquivo PRD.md foi salvo nos outputs",
+          "type": "file_exists",
+          "value": "PRD.md"
+        },
+        {
+          "name": "contem_secao_visao_geral",
+          "description": "O PRD contém uma seção de Visão Geral ou Resumo Executivo",
+          "type": "file_contains",
+          "value": "Visão Geral"
+        },
+        {
+          "name": "contem_requisitos_funcionais",
+          "description": "O PRD contém seção de Requisitos Funcionais",
+          "type": "file_contains",
+          "value": "Requisitos Funcionais"
+        },
+        {
+          "name": "contem_personas",
+          "description": "O PRD menciona personas ou público-alvo",
+          "type": "file_contains_any",
+          "value": ["Persona", "Público-alvo", "usuário"]
+        },
+        {
+          "name": "contem_kpis",
+          "description": "O PRD inclui métricas ou KPIs de sucesso",
+          "type": "file_contains_any",
+          "value": ["KPI", "Critérios de Sucesso", "métrica", "Métrica"]
+        },
+        {
+          "name": "menciona_modo_foco",
+          "description": "O PRD menciona o diferencial do modo foco profundo do briefing",
+          "type": "file_contains_any",
+          "value": ["foco profundo", "Foco Profundo", "modo foco", "bloqueio de notificações"]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Tenho esse PRD aqui que escrevi rapidinho, pode analisar e me dizer o que está faltando ou precisa melhorar?\n\n---\n# PRD - App de Finanças Pessoais\n\n## O que é\nUm app para controlar gastos pessoais.\n\n## Features\n- Cadastro de despesas\n- Gráficos de gastos\n- Alertas de orçamento\n- Importar extrato bancário\n\n## Público\nPessoas que querem controlar seus gastos.\n\n## Tech\n- React Native\n- Node.js\n- PostgreSQL\n---",
+      "expected_output": "Um relatório de análise estruturado com: nota/placar geral, pontos fortes, problemas críticos/importantes/sugestões, seções ausentes (personas detalhadas, KPIs, roadmap, requisitos não-funcionais) e próximos passos recomendados.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "arquivo_analise_criado",
+          "description": "Um arquivo de análise foi salvo nos outputs",
+          "type": "file_exists",
+          "value": "PRD_analise.md"
+        },
+        {
+          "name": "contem_nota_ou_placar",
+          "description": "A análise inclui algum tipo de avaliação/nota",
+          "type": "file_contains_any",
+          "value": ["Placar", "Nota", "/10", "pontuação"]
+        },
+        {
+          "name": "identifica_problemas",
+          "description": "A análise identifica problemas ou pontos de melhoria",
+          "type": "file_contains_any",
+          "value": ["Crítico", "crítico", "Problema", "problema", "faltando", "ausente"]
+        },
+        {
+          "name": "menciona_personas_ausentes",
+          "description": "A análise aponta que personas/público-alvo estão muito vagos",
+          "type": "file_contains_any",
+          "value": ["persona", "Persona", "público-alvo", "vago", "genérico"]
+        },
+        {
+          "name": "sugere_kpis",
+          "description": "A análise menciona falta de KPIs ou métricas de sucesso",
+          "type": "file_contains_any",
+          "value": ["KPI", "métrica", "Métrica", "sucesso", "medir"]
+        },
+        {
+          "name": "tem_proximos_passos",
+          "description": "A análise termina com próximos passos ou recomendações",
+          "type": "file_contains_any",
+          "value": ["Próximos Passos", "Recomendações", "próximos passos", "recomendações"]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Quero criar um PRD mas ainda não tenho tudo definido. É um marketplace de serviços para pets — tipo um Airbnb para cuidadores de animais. Ainda não sei bem quais features priorizar nem como vou monetizar. Pode me ajudar?",
+      "expected_output": "A skill deve detectar que o usuário está no modo DESCOBERTA e fazer perguntas estratégicas organizadas por blocos (produto, funcionalidades, negócio) antes de tentar gerar o PRD. Não deve gerar o PRD logo de cara sem coletar mais informações.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "faz_perguntas_de_descoberta",
+          "description": "A resposta contém perguntas para o usuário antes de tentar gerar o PRD",
+          "type": "response_contains_questions",
+          "value": true
+        },
+        {
+          "name": "nao_gera_prd_imediatamente",
+          "description": "A skill não gera um PRD completo sem primeiro fazer perguntas de descoberta",
+          "type": "file_not_exists",
+          "value": "PRD.md"
+        }
+      ]
+    }
+  ]
+}

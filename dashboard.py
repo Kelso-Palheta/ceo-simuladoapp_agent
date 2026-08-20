@@ -457,16 +457,30 @@ elif aba_selecionada == "👥 Membros do Conselho":
             st.markdown(dados_agente["diretrizes"])
 
     with tab_docs:
-        st.markdown("### 📚 Arquivos da Base de Conhecimento Compartilhada")
-        st.caption("Documentos institucionais, manuais operacionais e matrizes estratégicas que embasam o entendimento 360° do SimuladoApp.")
+        st.markdown("### 📚 Arquivos da Base de Conhecimento dos Diretores")
+        st.caption("Arquivos de base de conhecimento dedicados de cada diretor (`conhecimento/*.md`), estruturados com personas, modelos de negócio, KPIs e frameworks específicos.")
         
         dir_conhecimento = "conhecimento"
         if os.path.exists(dir_conhecimento):
+            mapa_rotulos = {
+                "ceo_diretrizes.md": "👑 CEO & Estratégia (ceo_diretrizes.md)",
+                "cto_arquitetura.md": "💻 Tecnologia / CTO (cto_arquitetura.md)",
+                "cfo_financeiro.md": "💰 Financeiro / CFO (cfo_financeiro.md)",
+                "growth_metricas.md": "📈 Tráfego & Marketing / Growth (growth_metricas.md)",
+                "conteudo_personas.md": "✍️ Conteúdo & Redes (conteudo_personas.md)",
+                "cpo_pedagogico.md": "🎓 Pedagógico & Produto / CPO (cpo_pedagogico.md)",
+                "cs_suporte.md": "🎧 Suporte & Atendimento / CS (cs_suporte.md)",
+                "legal_compliance.md": "⚖️ Jurídico & Compliance / Legal (legal_compliance.md)"
+            }
             arquivos_md = sorted([f for f in os.listdir(dir_conhecimento) if f.endswith(".md")])
             
             col_doc_sel, col_doc_info = st.columns([2.5, 1])
             with col_doc_sel:
-                doc_escolhido = st.selectbox("Selecione um documento da empresa para ler:", arquivos_md)
+                doc_escolhido = st.selectbox(
+                    "Selecione a base de conhecimento de um diretor para inspecionar:",
+                    arquivos_md,
+                    format_func=lambda f: mapa_rotulos.get(f, f)
+                )
             
             caminho_doc = os.path.join(dir_conhecimento, doc_escolhido)
             with open(caminho_doc, "r", encoding="utf-8") as f_doc:
@@ -474,9 +488,9 @@ elif aba_selecionada == "👥 Membros do Conselho":
                 
             with col_doc_info:
                 st.write("")
-                st.metric("Tamanho do Documento", f"{len(conteudo_doc)} chars")
+                st.metric("Tamanho da Base", f"{len(conteudo_doc)} chars")
                 
-            with st.expander(f"📖 Visualizar '{doc_escolhido}' ({len(conteudo_doc.splitlines())} linhas)", expanded=True):
+            with st.expander(f"📖 Inspecionar '{mapa_rotulos.get(doc_escolhido, doc_escolhido)}' ({len(conteudo_doc.splitlines())} linhas)", expanded=True):
                 st.markdown(conteudo_doc)
         else:
             st.warning("Pasta de conhecimento não encontrada no ambiente.")
