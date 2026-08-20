@@ -26,8 +26,10 @@ def criar_llm():
         max_tokens=2500
     )
 
+from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
+
 def instanciar_agentes():
-    """Instancia os 8 agentes com base nas diretrizes ativas salvas no banco de dados."""
+    """Instancia os 8 agentes combinando suas instruções/personas com todos os arquivos MD anexados em sua base de conhecimento."""
     configs = obter_configuracoes_agentes()
     llm_instance = criar_llm()
     
@@ -44,10 +46,22 @@ def instanciar_agentes():
     }
     
     for chave, dados in configs.items():
+        documentos_anexados = carregar_conhecimento_total_agente(chave)
+        
+        # Concatena instruções / persona com os documentos anexados na base de conhecimento
+        if documentos_anexados.strip():
+            contexto_completo = (
+                f"{dados['diretrizes'].strip()}\n\n"
+                f"=== DOCUMENTOS E ARQUIVOS DA BASE DE CONHECIMENTO DO AGENTE ===\n"
+                f"{documentos_anexados.strip()}"
+            )
+        else:
+            contexto_completo = dados['diretrizes'].strip()
+
         agente = Agent(
             role=f"{dados['cargo']} do SimuladoApp",
             goal=dados['meta'],
-            backstory=dados['diretrizes'],
+            backstory=contexto_completo,
             llm=llm_instance,
             verbose=False,
             allow_delegation=(chave == "ceo")

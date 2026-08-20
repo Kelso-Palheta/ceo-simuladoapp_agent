@@ -24,6 +24,82 @@ def get_connection():
     conn.execute("PRAGMA busy_timeout = 5000;")
     return conn
 
+def obter_diretorio_agente(chave: str) -> str:
+    """Retorna o caminho da pasta de conhecimento dedicada para o agente."""
+    dir_path = os.path.join("conhecimento", chave)
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path, exist_ok=True)
+    return dir_path
+
+def listar_arquivos_agente(chave: str) -> list[dict]:
+    """Lista todos os arquivos .md anexados na base de conhecimento do agente."""
+    dir_agente = obter_diretorio_agente(chave)
+    arquivos = []
+    
+    if os.path.exists(dir_agente):
+        for nome in sorted(os.listdir(dir_agente)):
+            if nome.endswith(".md"):
+                caminho = os.path.join(dir_agente, nome)
+                try:
+                    tamanho = os.path.getsize(caminho)
+                    arquivos.append({
+                        "nome": nome,
+                        "caminho": caminho,
+                        "tamanho": tamanho
+                    })
+                except Exception:
+                    pass
+    return arquivos
+
+def ler_arquivo_agente(chave: str, nome_arquivo: str) -> str:
+    """Lê o conteúdo textual de um arquivo .md específico da base do agente."""
+    caminho = os.path.join(obter_diretorio_agente(chave), nome_arquivo)
+    if os.path.exists(caminho):
+        try:
+            with open(caminho, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            return f"Erro ao ler arquivo: {e}"
+    return ""
+
+def salvar_arquivo_agente(chave: str, nome_arquivo: str, conteudo_bytes_ou_str: bytes | str) -> bool:
+    """Salva um novo arquivo .md na base de conhecimento do agente."""
+    if not nome_arquivo.endswith(".md"):
+        nome_arquivo += ".md"
+    nome_limpo = "".join([c for c in nome_arquivo if c.isalnum() or c in "._- "]).strip()
+    caminho = os.path.join(obter_diretorio_agente(chave), nome_limpo)
+    try:
+        if isinstance(conteudo_bytes_ou_str, bytes):
+            with open(caminho, "wb") as f:
+                f.write(conteudo_bytes_ou_str)
+        else:
+            with open(caminho, "w", encoding="utf-8") as f:
+                f.write(conteudo_bytes_ou_str)
+        return True
+    except Exception:
+        return False
+
+def excluir_arquivo_agente(chave: str, nome_arquivo: str) -> bool:
+    """Exclui um arquivo .md da base de conhecimento do agente."""
+    caminho = os.path.join(obter_diretorio_agente(chave), nome_arquivo)
+    if os.path.exists(caminho):
+        try:
+            os.remove(caminho)
+            return True
+        except Exception:
+            return False
+    return False
+
+def carregar_conhecimento_total_agente(chave: str) -> str:
+    """Lê todos os arquivos .md da pasta do agente e os consolida como contexto documental."""
+    arquivos = listar_arquivos_agente(chave)
+    blocos = []
+    for arq in arquivos:
+        conteudo = ler_arquivo_agente(chave, arq["nome"])
+        if conteudo.strip():
+            blocos.append(f"--- DOCUMENTO ANEXADO NA BASE [{arq['nome']}] ---\n{conteudo.strip()}")
+    return "\n\n".join(blocos)
+
 MAPA_ARQUIVOS_CONHECIMENTO = {
     "ceo": ("conhecimento/ceo_diretrizes.md", "CEO & Estratégia", "Orquestrar o Conselho Executivo do SimuladoApp, assegurar o Split Societário (33,33% Sócio 1 / 33,33% Sócio 2 / 33,33% Caixa PJ), proteger a liquidez e entregar planos em 5 seções."),
     "cto": ("conhecimento/cto_arquitetura.md", "Tecnologia (CTO)", "Entregar Mini-PRDs Técnicos de produção em Django/MySQL, otimizar pipeline OpenCV (<1s latência, >98% precisão) e Celery/Redis."),
@@ -36,10 +112,13 @@ MAPA_ARQUIVOS_CONHECIMENTO = {
 }
 
 def carregar_conhecimento_arquivo(chave: str) -> str:
-    """Lê o arquivo completo de conhecimento da pasta conhecimento/ para a chave informada."""
+    """Lê os arquivos de conhecimento da pasta do agente ou arquivo legado."""
+    conhecimento_pasta = carregar_conhecimento_total_agente(chave)
+    if conhecimento_pasta.strip():
+        return conhecimento_pasta
+        
     if chave in MAPA_ARQUIVOS_CONHECIMENTO:
         rel_path, _, _ = MAPA_ARQUIVOS_CONHECIMENTO[chave]
-        # Procura tanto relativo ao diretório atual quanto caminhos alternativos
         caminhos_tentar = [
             rel_path,
             os.path.join(os.path.dirname(__file__), rel_path),
