@@ -429,25 +429,32 @@ elif aba_selecionada == "👥 Membros do Conselho":
 
         dados_agente = configs_atuais[agente_chave_sel]
         
-        with st.form(f"form_editar_{agente_chave_sel}"):
-            st.subheader(f"Configuração do {dados_agente['cargo']}")
-            st.caption(f"Última atualização registrada: {dados_agente.get('data_atualizacao', 'Padrão Inicial')}")
-            
-            novo_cargo = st.text_input("Título / Cargo Oficial:", value=dados_agente["cargo"])
-            nova_meta = st.text_area("Meta Principal (Goal):", value=dados_agente["meta"], height=90)
-            novas_diretrizes = st.text_area(
-                "Diretrizes, Preços de Planos, Regras de Negócio e Métricas (Backstory):",
-                value=dados_agente["diretrizes"],
-                height=180,
-                help="Você pode alterar preços (ex: R$ 4,99/mês), regras de split, modelos de desconto, stacks tecnológicas ou rotinas de CS."
-            )
-            
-            btn_salvar_config = st.form_submit_button("💾 Salvar Novas Diretrizes deste Diretor", type="primary")
-            
-            if btn_salvar_config:
-                salvar_configuracao_agente(agente_chave_sel, novo_cargo.strip(), nova_meta.strip(), novas_diretrizes.strip())
-                st.success(f"✅ Diretrizes do {novo_cargo} atualizadas com sucesso e persistidas no banco!")
-                st.rerun()
+        st.markdown(f"### ⚙️ Base de Conhecimento: **{dados_agente['cargo']}**")
+        st.caption(f"📅 Última atualização: `{dados_agente.get('data_atualizacao', 'Padrão Inicial')}` | 📊 Volume: `{len(dados_agente['diretrizes'])} caracteres`")
+
+        subtab_edit, subtab_view = st.tabs(["✏️ Editar Diretrizes & Personas", "📖 Visualizar Documento Completo (Renderizado)"])
+        
+        with subtab_edit:
+            with st.form(f"form_editar_{agente_chave_sel}"):
+                novo_cargo = st.text_input("Título / Cargo Oficial:", value=dados_agente["cargo"])
+                nova_meta = st.text_area("Meta Principal (Goal):", value=dados_agente["meta"], height=80)
+                novas_diretrizes = st.text_area(
+                    "Base de Conhecimento, Personas, Regras de Negócio e Heurísticas (Backstory Completo):",
+                    value=dados_agente["diretrizes"],
+                    height=350,
+                    help="Documento completo em Markdown com Personas, KPIs, Frameworks, Heurísticas e Regras Operacionais."
+                )
+                
+                btn_salvar_config = st.form_submit_button("💾 Salvar Novas Diretrizes deste Diretor", type="primary")
+                
+                if btn_salvar_config:
+                    salvar_configuracao_agente(agente_chave_sel, novo_cargo.strip(), nova_meta.strip(), novas_diretrizes.strip())
+                    st.success(f"✅ Base de conhecimento do {novo_cargo} atualizada com sucesso e sincronizada!")
+                    st.rerun()
+
+        with subtab_view:
+            st.markdown("#### 📄 Documento de Diretrizes Ativo no Agente:")
+            st.markdown(dados_agente["diretrizes"])
 
     with tab_cards:
         membros_info = [

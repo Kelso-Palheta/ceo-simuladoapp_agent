@@ -24,49 +24,54 @@ def get_connection():
     conn.execute("PRAGMA busy_timeout = 5000;")
     return conn
 
-# Diretrizes padrão de fábrica para cada um dos 8 agentes
-CONFIG_PADRAO_AGENTES = {
-    "ceo": {
-        "cargo": "CEO & Estratégia",
-        "meta": "Orquestrar o Conselho Executivo do SimuladoApp, assegurar o Split Societário (33,33% Sócio 1 / 33,33% Sócio 2 / 33,33% Caixa PJ), proteger a liquidez e entregar planos em 5 seções.",
-        "diretrizes": "Você é o CEO do SimuladoApp. Mentalidade: Alex Hormozi (escala enxuta), Eric Ries (Lean) e David Sacks (SaaS unit economics). Modelo de Negócio: Gratuito 15 correções/mês, Assinatura R$ 4,99/mês, Pacotes P/M/G vitalícios e Split 33/33/33 inegociável. Métricas: TTFV < 5min, CAC Pago <= R$ 15,00, CPL <= R$ 0,75, Margem > 80% e Payback imediato no Pix."
-    },
-    "cto": {
-        "cargo": "Tecnologia (CTO)",
-        "meta": "Entregar Mini-PRDs Técnicos de produção em Django/MySQL, otimizar pipeline OpenCV (<1s latência, >98% precisão) e Celery/Redis.",
-        "diretrizes": "Você é o Diretor de Tecnologia (CTO) do SimuladoApp. Mentalidade John Carmack (performance máxima) e Martin Fowler (Clean Architecture). Blindagem de queries MySQL sem N+1 e segurança LGPD de dados escolares."
-    },
-    "cpo": {
-        "cargo": "Pedagógico & Produto (CPO)",
-        "meta": "Garantir UX docente sem atrito (< 3 cliques), alinhamento estrito à BNCC/SAEB e relatórios formativos de 1 página.",
-        "diretrizes": "Você é o Diretor Pedagógico e de Produto (CPO) do SimuladoApp. Mentalidade Salman Khan e Tony Fadell. Foco na rotina sobrecarregada do professor para garantir TTFV < 5 minutos."
-    },
-    "growth": {
-        "cargo": "Tráfego & Marketing (Growth)",
-        "meta": "Desenhar campanhas Meta Ads com CPL <= R$ 0,75, CAC Pago <= R$ 15,00, ROAS >= 3.5x e alocação dinâmica nos picos bimestrais (abril, junho, set, nov).",
-        "diretrizes": "Você é o Diretor de Tráfego e Marketing (Growth) do SimuladoApp. Mentalidade Sean Ellis e Russell Brunson. Domínio da Conversion API (CAPI), testes A/B de criativos e regras de corte estritas para CPL > R$ 1,50."
-    },
-    "conteudo": {
-        "cargo": "Conteúdo & Redes",
-        "meta": "Criar roteiros magnéticos de Reels/Shorts em 3 atos (Hook 3s, Desenvolvimento, CTA) focados no alívio: 'O SimuladoApp devolve seus finais de semana'.",
-        "diretrizes": "Você é o Diretor de Conteúdo e Redes do SimuladoApp. Mentalidade GaryVee e Nicolas Cole. Copywriting autêntico, zero jargão corporativo e apelo emocional direto ao cansaço de correção de provas."
-    },
-    "cfo": {
-        "cargo": "Financeiro (CFO)",
-        "meta": "Auditar o Split 33/33/33, conciliação quinzenal, monitorar taxas de gateway Pix e garantir reserva de segurança de 3 meses de custos fixos.",
-        "diretrizes": "Você é o Diretor Financeiro (CFO) do SimuladoApp. Mentalidade Warren Buffett e Ray Dalio. Guardião da liquidez e do DRE de SaaS."
-    },
-    "cs": {
-        "cargo": "Suporte (CS)",
-        "meta": "Manter churn < 5%, régua D+0/D+1 humanizada no WhatsApp e operar o gatilho de upsell para Pacote M quando o saldo for <= 15%.",
-        "diretrizes": "Você é o Diretor de Suporte e Atendimento (CS) do SimuladoApp. Mentalidade Tony Hsieh (Zappos). Suporte ágil para gabaritos e resolução rápida de dúvidas de câmera."
-    },
-    "legal": {
-        "cargo": "Jurídico & Compliance (Legal)",
-        "meta": "Blindagem LGPD escolar (dados de menores, SimuladoApp como Operador), Termos de Uso de SaaS, INPI e Acordo de Sócios 33/33/33.",
-        "diretrizes": "Você é o Diretor Jurídico e DPO (Legal) do SimuladoApp. Mentalidade Brad Smith e Ann Cavoukian (Privacy by Design). Contratos ágeis para edtech."
-    }
+MAPA_ARQUIVOS_CONHECIMENTO = {
+    "ceo": ("conhecimento/ceo_diretrizes.md", "CEO & Estratégia", "Orquestrar o Conselho Executivo do SimuladoApp, assegurar o Split Societário (33,33% Sócio 1 / 33,33% Sócio 2 / 33,33% Caixa PJ), proteger a liquidez e entregar planos em 5 seções."),
+    "cto": ("conhecimento/cto_arquitetura.md", "Tecnologia (CTO)", "Entregar Mini-PRDs Técnicos de produção em Django/MySQL, otimizar pipeline OpenCV (<1s latência, >98% precisão) e Celery/Redis."),
+    "cpo": ("conhecimento/cpo_pedagogico.md", "Pedagógico & Produto (CPO)", "Garantir UX docente sem atrito (< 3 cliques), alinhamento estrito à BNCC/SAEB e relatórios formativos de 1 página."),
+    "growth": ("conhecimento/growth_metricas.md", "Tráfego & Marketing (Growth)", "Desenhar campanhas Meta Ads com CPL <= R$ 0,75, CAC Pago <= R$ 15,00, ROAS >= 3.5x e alocação dinâmica nos picos bimestrais (abril, junho, set, nov)."),
+    "conteudo": ("conhecimento/conteudo_personas.md", "Conteúdo & Redes", "Criar roteiros magnéticos de Reels/Shorts em 3 atos (Hook 3s, Desenvolvimento, CTA) focados no alívio: 'O SimuladoApp devolve seus finais de semana'."),
+    "cfo": ("conhecimento/cfo_financeiro.md", "Financeiro (CFO)", "Auditar o Split 33/33/33, conciliação quinzenal, monitorar taxas de gateway Pix e garantir reserva de segurança de 3 meses de custos fixos."),
+    "cs": ("conhecimento/cs_suporte.md", "Suporte (CS)", "Manter churn < 5%, régua D+0/D+1 humanizada no WhatsApp e operar o gatilho de upsell para Pacote M quando o saldo for <= 15%."),
+    "legal": ("conhecimento/legal_compliance.md", "Jurídico & Compliance (Legal)", "Blindagem LGPD escolar (dados de menores, SimuladoApp como Operador), Termos de Uso de SaaS, INPI e Acordo de Sócios 33/33/33.")
 }
+
+def carregar_conhecimento_arquivo(chave: str) -> str:
+    """Lê o arquivo completo de conhecimento da pasta conhecimento/ para a chave informada."""
+    if chave in MAPA_ARQUIVOS_CONHECIMENTO:
+        rel_path, _, _ = MAPA_ARQUIVOS_CONHECIMENTO[chave]
+        # Procura tanto relativo ao diretório atual quanto caminhos alternativos
+        caminhos_tentar = [
+            rel_path,
+            os.path.join(os.path.dirname(__file__), rel_path),
+            os.path.join("/app", rel_path)
+        ]
+        for cam in caminhos_tentar:
+            if os.path.exists(cam):
+                try:
+                    with open(cam, "r", encoding="utf-8") as f:
+                        conteudo = f.read().strip()
+                        if conteudo:
+                            return conteudo
+                except Exception:
+                    pass
+    return ""
+
+def obter_config_padrao_completa() -> dict:
+    """Monta a configuração padrão com todo o conteúdo rico e detalhado da base de conhecimento."""
+    config = {}
+    for chave, (rel_path, cargo, meta) in MAPA_ARQUIVOS_CONHECIMENTO.items():
+        diretrizes = carregar_conhecimento_arquivo(chave)
+        if not diretrizes:
+            diretrizes = f"Você é o {cargo} do SimuladoApp. Foco em excelência e metas estratégicas."
+        config[chave] = {
+            "cargo": cargo,
+            "meta": meta,
+            "diretrizes": diretrizes
+        }
+    return config
+
+# Diretrizes padrão completas
+CONFIG_PADRAO_AGENTES = obter_config_padrao_completa()
 
 def init_db():
     conn = get_connection()
@@ -104,13 +109,21 @@ def init_db():
         )
     """)
     
-    # Popula com as diretrizes padrão se a tabela estiver vazia
-    cursor.execute("SELECT COUNT(*) FROM configuracao_agentes")
-    if cursor.fetchone()[0] == 0:
-        for chave, dados in CONFIG_PADRAO_AGENTES.items():
+    # Sincroniza com o conhecimento completo caso a tabela esteja vazia ou com textos curtos antigos
+    configs_completas = obter_config_padrao_completa()
+    cursor.execute("SELECT chave, diretrizes FROM configuracao_agentes")
+    existentes = dict(cursor.fetchall())
+    
+    for chave, dados in configs_completas.items():
+        if chave not in existentes or len(existentes[chave]) < 300:
             cursor.execute("""
                 INSERT INTO configuracao_agentes (chave, cargo, meta, diretrizes, data_atualizacao)
                 VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(chave) DO UPDATE SET
+                    cargo = excluded.cargo,
+                    meta = excluded.meta,
+                    diretrizes = excluded.diretrizes,
+                    data_atualizacao = excluded.data_atualizacao
             """, (chave, dados["cargo"], dados["meta"], dados["diretrizes"], datetime.now().strftime("%d/%m/%Y %H:%M")))
     
     conn.commit()
@@ -152,8 +165,9 @@ def salvar_configuracao_agente(chave: str, cargo: str, meta: str, diretrizes: st
     conn.close()
 
 def restaurar_padrao_agentes():
-    """Restaura as diretrizes padrão de todos os agentes."""
-    for chave, dados in CONFIG_PADRAO_AGENTES.items():
+    """Restaura as diretrizes padrão de todos os agentes a partir dos arquivos .md de conhecimento."""
+    padrao = obter_config_padrao_completa()
+    for chave, dados in padrao.items():
         salvar_configuracao_agente(chave, dados["cargo"], dados["meta"], dados["diretrizes"])
 
 def salvar_lembrete(texto: str):
