@@ -28,7 +28,7 @@ def criar_llm():
         api_key=groq_api_key,
         base_url="https://api.groq.com/openai/v1",
         temperature=0.3,
-        max_tokens=2000
+        max_tokens=4000
     )
 
 from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
@@ -169,10 +169,11 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
             desc_tarefa = (
                 f"O fundador solicitou uma demanda direta para o seu cargo ({titulo_agente}):\n\n"
                 f"\"{demanda_usuario}\"\n\n"
-                f"Responda diretamente e de forma especializada como {titulo_agente}, sem rodeios, "
-                f"entregando o formato técnico/específico da sua área (ex: Mini-PRD para CTO, Roteiro para Conteúdo, DRE para CFO)."
+                f"Responda diretamente e de forma especializada como {titulo_agente}, com densidade técnica e objetividade, "
+                f"entregando o formato técnico/específico da sua área (ex: Mini-PRD para CTO, Roteiro para Conteúdo, DRE para CFO). "
+                f"Finalize todas as seções e conclusões sem deixar tópicos ou blocos abertos."
             )
-            out_esperado = f"Parecer e entregável especializado direto do {titulo_agente}."
+            out_esperado = f"Parecer e entregável especializado completo e conclusivo do {titulo_agente}."
 
         tarefa_direta = Task(
             description=desc_tarefa,
