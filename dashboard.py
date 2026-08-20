@@ -611,44 +611,47 @@ elif aba_selecionada == "👥 Membros do Conselho":
     
     st.divider()
 
-    # 1. NOME & DESCRIÇÃO
-    st.markdown("#### 🏷️ Nome do Agente")
-    novo_cargo = st.text_input("Nome", value=dados_agente["cargo"], key=f"nome_{agente_chave_sel}", label_visibility="collapsed")
-    
-    st.markdown("#### 📝 Descrição")
-    nova_meta = st.text_input(
-        "Descrição",
-        value=dados_agente["meta"],
-        key=f"desc_{agente_chave_sel}",
-        help="Descrição de alto nível do papel executivo do diretor.",
-        label_visibility="collapsed"
-    )
-    
-    # 2. INSTRUÇÕES (PERSONA & COMPORTAMENTO)
-    st.markdown("#### 🧠 Instruções (Persona, Tom & Regras de Entrega)")
-    novas_diretrizes = st.text_area(
-        "Instruções",
-        value=dados_agente["diretrizes"],
-        height=260,
-        key=f"inst_{agente_chave_sel}",
-        help="Instruções de sistema, mentalidade de referência, regras do Split 33/33/33 e formatos de resposta.",
-        label_visibility="collapsed"
-    )
-    
-    # Botão de salvar alterações das instruções
-    if st.button("💾 Salvar Alterações de Nome, Descrição e Instruções", type="primary", use_container_width=True):
-        salvar_configuracao_agente(agente_chave_sel, novo_cargo.strip(), nova_meta.strip(), novas_diretrizes.strip())
-        st.success(f"✅ Configurações do {novo_cargo} atualizadas com sucesso!")
-        st.rerun()
+    # 1, 2 & 3: FORMULÁRIO DE NOME, DESCRIÇÃO E INSTRUÇÕES (ESTILO GOOGLE GEMS)
+    with st.form(key=f"form_gem_config_{agente_chave_sel}"):
+        st.markdown("#### 🏷️ Nome do Agente")
+        novo_cargo = st.text_input("Nome", value=dados_agente["cargo"], label_visibility="collapsed")
+        
+        st.markdown("#### 📝 Descrição")
+        nova_meta = st.text_input(
+            "Descrição",
+            value=dados_agente["meta"],
+            help="Descrição de alto nível do papel executivo do diretor.",
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("#### 🧠 Instruções (Persona, Tom & Regras de Entrega)")
+        novas_diretrizes = st.text_area(
+            "Instruções",
+            value=dados_agente["diretrizes"],
+            height=260,
+            help="Instruções de sistema, mentalidade de referência, regras do Split 33/33/33 e formatos de resposta.",
+            label_visibility="collapsed"
+        )
+        
+        btn_salvar_gem = st.form_submit_button(
+            f"💾 Salvar Alterações de '{dados_agente['cargo']}'",
+            type="primary",
+            use_container_width=True
+        )
+        
+        if btn_salvar_gem:
+            salvar_configuracao_agente(agente_chave_sel, novo_cargo.strip(), nova_meta.strip(), novas_diretrizes.strip())
+            st.success(f"✅ Configurações e Instruções de '{novo_cargo}' salvas e persistidas com sucesso!")
+            st.rerun()
 
     st.divider()
 
-    # 3. BASE DE CONHECIMENTO (CARDS DE ARQUIVOS .MD ANEXADOS)
+    # 4. BASE DE CONHECIMENTO (CARDS DE ARQUIVOS .MD ANEXADOS)
     st.markdown("#### 📚 Base de Conhecimento (Arquivos Markdown Anexados)")
-    st.caption("Arquivos `.md` que embasam o conhecimento técnico, estratégico e operacional deste diretor. O agente lê esses documentos a cada consulta.")
+    st.caption("Arquivos `.md` físicos anexados à base de dados deste diretor. O agente lê esses documentos a cada consulta e eles nunca são perdidos.")
 
     if not arquivos_conhecimento:
-        st.info("Nenhum arquivo `.md` anexado à base deste agente ainda. Faça o upload abaixo para aumentar a inteligência dele!")
+        st.info("Nenhum arquivo `.md` anexado à base deste agente ainda. Faça o upload abaixo para adicionar documentos de negócio!")
     else:
         # Exibe em grid de cards (2 colunas) estilo Google Gems
         cols_cards = st.columns(2)
@@ -672,7 +675,7 @@ elif aba_selecionada == "👥 Membros do Conselho":
                         conteudo_preview = ler_arquivo_agente(agente_chave_sel, arq['nome'])
                         st.markdown(conteudo_preview)
 
-    # 4. UPLOAD DE NOVOS ARQUIVOS PARA A BASE DE CONHECIMENTO DO AGENTE
+    # 5. UPLOAD DE NOVOS ARQUIVOS PARA A BASE DE CONHECIMENTO DO AGENTE
     st.markdown("##### ➕ Anexar Novo Arquivo à Base deste Agente")
     arq_up = st.file_uploader(
         f"Faça upload de um arquivo .md para adicionar à base do {dados_agente['cargo']}:",
@@ -680,11 +683,11 @@ elif aba_selecionada == "👥 Membros do Conselho":
         key=f"up_md_{agente_chave_sel}"
     )
     if arq_up is not None:
-        if st.button(f"📥 Salvar '{arq_up.name}' na Base do Agente", key=f"btn_save_up_{agente_chave_sel}"):
+        if st.button(f"📥 Salvar '{arq_up.name}' na Base de Conhecimento", key=f"btn_save_up_{agente_chave_sel}", type="primary"):
             bytes_up = arq_up.read()
             ok = salvar_arquivo_agente(agente_chave_sel, arq_up.name, bytes_up)
             if ok:
-                st.success(f"✅ Arquivo '{arq_up.name}' incorporado com sucesso à inteligência do agente!")
+                st.success(f"✅ Arquivo '{arq_up.name}' incorporado com sucesso à base de conhecimento do {dados_agente['cargo']}!")
                 st.rerun()
             else:
                 st.error("Erro ao salvar arquivo na base.")

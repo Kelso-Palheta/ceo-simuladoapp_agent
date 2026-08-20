@@ -212,21 +212,16 @@ def init_db():
         )
     """)
     
-    # Sincroniza com o conhecimento completo caso a tabela esteja vazia ou com textos curtos/desatualizados
+    # Sincroniza com as diretrizes padrão apenas se o agente ainda não estiver cadastrado no banco
     configs_completas = obter_config_padrao_completa()
-    cursor.execute("SELECT chave, diretrizes FROM configuracao_agentes")
-    existentes = dict(cursor.fetchall())
+    cursor.execute("SELECT chave FROM configuracao_agentes")
+    existentes = set([row[0] for row in cursor.fetchall()])
     
     for chave, dados in configs_completas.items():
-        if chave not in existentes or len(existentes[chave]) < 2000:
+        if chave not in existentes:
             cursor.execute("""
                 INSERT INTO configuracao_agentes (chave, cargo, meta, diretrizes, data_atualizacao)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(chave) DO UPDATE SET
-                    cargo = excluded.cargo,
-                    meta = excluded.meta,
-                    diretrizes = excluded.diretrizes,
-                    data_atualizacao = excluded.data_atualizacao
             """, (chave, dados["cargo"], dados["meta"], dados["diretrizes"], datetime.now().strftime("%d/%m/%Y %H:%M")))
     
     conn.commit()
@@ -252,9 +247,10 @@ def obter_configuracoes_agentes() -> dict:
     return config
 
 def salvar_configuracao_agente(chave: str, cargo: str, meta: str, diretrizes: str):
-    """Atualiza as diretrizes personalizadas de um agente no banco de dados."""
+    """Atualiza as diretrizes personalizadas de um agente no banco de dados e em arquivo de disco."""
     conn = get_connection()
     cursor = conn.cursor()
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M")
     cursor.execute("""
         INSERT INTO configuracao_agentes (chave, cargo, meta, diretrizes, data_atualizacao)
         VALUES (?, ?, ?, ?, ?)
@@ -263,9 +259,18 @@ def salvar_configuracao_agente(chave: str, cargo: str, meta: str, diretrizes: st
             meta = excluded.meta,
             diretrizes = excluded.diretrizes,
             data_atualizacao = excluded.data_atualizacao
-    """, (chave, cargo, meta, diretrizes, datetime.now().strftime("%d/%m/%Y %H:%M")))
+    """, (chave, cargo.strip(), meta.strip(), diretrizes.strip(), data_hora))
     conn.commit()
     conn.close()
+    
+    # Salva também uma cópia no diretório de conhecimento do agente para persistência em disco
+    dir_agente = obter_diretorio_agente(chave)
+    arq_persona = os.path.join(dir_agente, "persona_instrucoes.md")
+    try:
+        with open(arq_persona, "w", encoding="utf-8") as f:
+            f.write(f"# {cargo.upper()}\n\n**Meta:** {meta}\n\n## INSTRUÇÕES\n\n{diretrizes}")
+    except Exception:
+        pass
 
 def restaurar_padrao_agentes():
     """Restaura as diretrizes padrão de todos os agentes a partir dos arquivos .md de conhecimento."""
