@@ -1,14 +1,17 @@
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
+
 os.environ["OTEL_SDK_DISABLED"] = "true"
 os.environ["CREWAI_TELEMETRY_OPT_OUT"] = "true"
+os.environ["CREWAI_STORAGE_DIR"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "data", ".crewai"))
+os.makedirs(os.environ["CREWAI_STORAGE_DIR"], exist_ok=True)
 
 from crewai import Agent, Task, Crew, Process, LLM
 import litellm
 from database import obter_configuracoes_agentes
 
-load_dotenv()
 litellm.drop_params = True
 
 # Configuração com o provedor Groq
@@ -17,57 +20,74 @@ os.environ["GROQ_API_KEY"] = groq_api_key
 os.environ["OPENAI_API_KEY"] = groq_api_key
 os.environ["OPENAI_API_BASE"] = "https://api.groq.com/openai/v1"
 
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/openai/gpt-oss-20b")
+
 def criar_llm():
     return LLM(
-        model="openai/openai/gpt-oss-20b",
+        model=GROQ_MODEL,
         api_key=groq_api_key,
         base_url="https://api.groq.com/openai/v1",
         temperature=0.3,
-        max_tokens=2500
+        max_tokens=2000
     )
 
 from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
 
-def instanciar_agentes():
-    """Instancia os 8 agentes combinando suas instruções/personas com todos os arquivos MD anexados em sua base de conhecimento."""
+MAPA_ICONES = {
+    "ceo": "👑",
+    "cto": "💻",
+    "cpo": "🎓",
+    "conteudo": "✍️",
+    "growth": "📈",
+    "cfo": "💰",
+    "cs": "🎧",
+    "legal": "⚖️"
+}
+
+def instanciar_agente_individual(chave: str, configs: dict | None = None, llm_instance=None):
+    """Instancia um único agente sob demanda com contexto enxuto e sem duplicações."""
+    if configs is None:
+        configs = obter_configuracoes_agentes()
+    if llm_instance is None:
+        llm_instance = criar_llm()
+        
+    chave_norm = normalizar_agente(chave)
+    if chave_norm not in configs:
+        chave_norm = "ceo"
+        
+    dados = configs[chave_norm]
+    documentos_anexados = carregar_conhecimento_total_agente(chave_norm)
+    
+    # Monta backstory enxuto: diretrizes do banco + documentos anexados adicionais
+    diretrizes_texto = dados['diretrizes'].strip()
+    if documentos_anexados.strip():
+        contexto_completo = f"{diretrizes_texto}\n\n=== DOCUMENTOS ANEXADOS ===\n{documentos_anexados.strip()}"
+    else:
+        contexto_completo = diretrizes_texto
+
+    agente = Agent(
+        role=f"{dados['cargo']} do SimuladoApp",
+        goal=dados['meta'],
+        backstory=contexto_completo,
+        llm=llm_instance,
+        verbose=False,
+        allow_delegation=(chave_norm == "ceo")
+    )
+    return agente, f"{MAPA_ICONES.get(chave_norm, '👔')} {dados['cargo']}"
+
+def instanciar_agentes(chaves_desejadas: list[str] | None = None):
+    """Instancia sob demanda apenas os agentes necessários para a execução atual."""
     configs = obter_configuracoes_agentes()
     llm_instance = criar_llm()
     
+    chaves_processar = chaves_desejadas if chaves_desejadas else list(configs.keys())
     agentes = {}
-    icones = {
-        "ceo": "👑",
-        "cto": "💻",
-        "cpo": "🎓",
-        "conteudo": "✍️",
-        "growth": "📈",
-        "cfo": "💰",
-        "cs": "🎧",
-        "legal": "⚖️"
-    }
     
-    for chave, dados in configs.items():
-        documentos_anexados = carregar_conhecimento_total_agente(chave)
-        
-        # Concatena instruções / persona com os documentos anexados na base de conhecimento
-        if documentos_anexados.strip():
-            contexto_completo = (
-                f"{dados['diretrizes'].strip()}\n\n"
-                f"=== DOCUMENTOS E ARQUIVOS DA BASE DE CONHECIMENTO DO AGENTE ===\n"
-                f"{documentos_anexados.strip()}"
-            )
-        else:
-            contexto_completo = dados['diretrizes'].strip()
-
-        agente = Agent(
-            role=f"{dados['cargo']} do SimuladoApp",
-            goal=dados['meta'],
-            backstory=contexto_completo,
-            llm=llm_instance,
-            verbose=False,
-            allow_delegation=(chave == "ceo")
-        )
-        agentes[chave] = (agente, f"{icones.get(chave, '👔')} {dados['cargo']}")
-        
+    for chave in chaves_processar:
+        chave_norm = normalizar_agente(chave)
+        if chave_norm in configs:
+            agentes[chave_norm] = instanciar_agente_individual(chave_norm, configs, llm_instance)
+            
     return agentes
 
 MAPA_NOMES_ICONES = {
@@ -119,23 +139,21 @@ def normalizar_agente(nome: str) -> str:
 async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list[str] | str | None = None) -> str:
     """
     Executa a demanda com os agentes selecionados ou com toda a Mesa Diretora.
-    Carrega dinamicamente as diretrizes customizadas pelo fundador.
+    Carrega sob demanda apenas os agentes envolvidos para máxima economia de tokens e velocidade.
     """
-    mapa_agentes = instanciar_agentes()
-    
     # Normalização de agentes_alvo
     if isinstance(agentes_alvo, str):
         agentes_alvo = [agentes_alvo]
         
     if agentes_alvo:
-        agentes_normalizados = [normalizar_agente(a) for a in agentes_alvo if normalizar_agente(a) in mapa_agentes]
+        agentes_normalizados = [normalizar_agente(a) for a in agentes_alvo]
     else:
         agentes_normalizados = []
 
-    # CASO 1: Consulta individual direta (Ultra econômico em tokens - 1 único agente)
+    # CASO 1: Consulta individual direta (Instancia 1 ÚNICO agente -> Consumo mínimo: ~1.000 tokens)
     if len(agentes_normalizados) == 1:
         chave = agentes_normalizados[0]
-        agente_escolhido, titulo_agente = mapa_agentes[chave]
+        agente_escolhido, titulo_agente = instanciar_agente_individual(chave)
         
         if chave == "ceo":
             desc_tarefa = (
@@ -172,19 +190,20 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
         return f"**[{titulo_agente}]**\n\n{str(resultado)}"
 
     # CASO 2: Consulta a um subgrupo específico de agentes (ex: CTO + CFO)
-    elif len(agentes_normalizados) > 1 and len(agentes_normalizados) < len(mapa_agentes):
-        agentes_objs = [mapa_agentes[k][0] for k in agentes_normalizados]
-        titulos = ", ".join([mapa_agentes[k][1] for k in agentes_normalizados])
-        ceo_obj = mapa_agentes["ceo"][0]
+    elif len(agentes_normalizados) > 1 and len(agentes_normalizados) < 8:
+        mapa_sub = instanciar_agentes(agentes_normalizados)
+        agentes_objs = [v[0] for v in mapa_sub.values()]
+        titulos = ", ".join([v[1] for v in mapa_sub.values()])
+        lider_obj = agentes_objs[0]
         
         tarefa_subgrupo = Task(
             description=(
                 f"Demanda do fundador: '{demanda_usuario}'.\n\n"
                 f"Especialistas convocados: {titulos}.\n"
-                f"Cada especialista deve fornecer sua contribuição direta e o CEO/Líder deve consolidar um plano rápido."
+                f"Cada especialista deve fornecer sua contribuição direta e consolidar um plano rápido e prático."
             ),
             expected_output="Parecer integrado dos especialistas convocados.",
-            agent=ceo_obj
+            agent=lider_obj
         )
         
         tripulacao = Crew(
@@ -196,16 +215,16 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
         resultado = await tripulacao.kickoff_async()
         return str(resultado)
 
-    # CASO 3: Mesa Completa (Conselho Geral com todos os 8 agentes)
+    # CASO 3: Mesa Completa (Conselho Geral Orquestrado pelo CEO)
     else:
-        ceo_obj = mapa_agentes["ceo"][0]
-        todos_agentes = [ag[0] for ag in mapa_agentes.values()]
+        # Instancia o CEO como orquestrador executivo
+        ceo_obj, titulo_ceo = instanciar_agente_individual("ceo")
         
         tarefa_ceo = Task(
             description=(
-                f"O fundador solicitou a seguinte demanda estratégica: '{demanda_usuario}'.\n\n"
-                f"Como CEO & Orquestrador da Mesa Diretora, convoque as perspectivas necessárias dos 8 diretores "
-                f"e consolide a resposta estritamente no seguinte padrão executivo:\n"
+                f"O fundador solicitou a seguinte demanda estratégica para o Conselho: '{demanda_usuario}'.\n\n"
+                f"Como CEO & Orquestrador da Mesa Diretora, integre as perspectivas dos 8 diretores "
+                f"(CTO, CPO, Growth, Conteúdo, CFO, CS, Legal) e consolide a resposta estritamente no seguinte padrão executivo:\n"
                 f"1. **Veredito Executivo & Direcionamento Geral** (Alinhamento global e split societário 33/33/33)\n"
                 f"2. **Contribuição dos Especialistas Convocados** (Mini-PRD do CTO, UX do CPO, Campanhas Growth, Roteiro Conteúdo, Scripts CS, DRE CFO ou Parecer Legal)\n"
                 f"3. **Plano de Ação Tático: O que Você (Fundador) Deve Fazer** (Ações práticas e decisões humanas)\n"
@@ -217,7 +236,7 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
         )
         
         conselho = Crew(
-            agents=todos_agentes,
+            agents=[ceo_obj],
             tasks=[tarefa_ceo],
             process=Process.sequential,
             verbose=False

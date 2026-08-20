@@ -38,7 +38,7 @@ def listar_arquivos_agente(chave: str) -> list[dict]:
     
     if os.path.exists(dir_agente):
         for nome in sorted(os.listdir(dir_agente)):
-            if nome.endswith(".md"):
+            if nome.endswith(".md") and not nome.startswith("."):
                 caminho = os.path.join(dir_agente, nome)
                 try:
                     tamanho = os.path.getsize(caminho)
@@ -91,13 +91,29 @@ def excluir_arquivo_agente(chave: str, nome_arquivo: str) -> bool:
     return False
 
 def carregar_conhecimento_total_agente(chave: str) -> str:
-    """Lê todos os arquivos .md da pasta do agente e os consolida como contexto documental."""
+    """Lê documentos adicionais anexados pelo usuário na pasta do agente sem duplicar arquivos de persona."""
     arquivos = listar_arquivos_agente(chave)
     blocos = []
+    # Nomes de arquivos que são personas do sistema e não devem ser duplicados no contexto
+    arquivos_ignorar = [
+        "persona_instrucoes.md",
+        f"{chave}_diretrizes.md",
+        "ceo_diretrizes.md",
+        "cto_arquitetura.md",
+        "cfo_financeiro.md",
+        "growth_metricas.md",
+        "conteudo_personas.md",
+        "cpo_pedagogico.md",
+        "cs_suporte.md",
+        "legal_compliance.md"
+    ]
     for arq in arquivos:
-        conteudo = ler_arquivo_agente(chave, arq["nome"])
-        if conteudo.strip():
-            blocos.append(f"--- DOCUMENTO ANEXADO NA BASE [{arq['nome']}] ---\n{conteudo.strip()}")
+        if arq["nome"] not in arquivos_ignorar:
+            conteudo = ler_arquivo_agente(chave, arq["nome"])
+            if conteudo.strip():
+                # Limita a 2.500 caracteres por arquivo adicional para não estourar tokens
+                trecho = conteudo.strip()[:2500]
+                blocos.append(f"--- DOCUMENTO ANEXADO [{arq['nome']}] ---\n{trecho}")
     return "\n\n".join(blocos)
 
 MAPA_ARQUIVOS_CONHECIMENTO = {
