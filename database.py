@@ -156,15 +156,39 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Tabela de lembretes e tarefas
+    # Tabela de tarefas e Kanban Executivo
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS lembretes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             texto TEXT NOT NULL,
+            descricao TEXT DEFAULT '',
+            responsavel TEXT DEFAULT 'Fundador',
+            prioridade TEXT DEFAULT 'Média',
+            fase TEXT DEFAULT 'backlog',
+            status TEXT DEFAULT 'pendente',
             data_criacao TEXT NOT NULL,
-            status TEXT DEFAULT 'pendente'
+            data_prazo TEXT DEFAULT ''
         )
     """)
+
+    # Migra colunas novas caso a tabela tenha sido criada em versão antiga
+    cursor.execute("PRAGMA table_info(lembretes)")
+    colunas_existentes = [col[1] for col in cursor.fetchall()]
+    
+    colunas_para_adicionar = {
+        "descricao": "TEXT DEFAULT ''",
+        "responsavel": "TEXT DEFAULT 'Fundador'",
+        "prioridade": "TEXT DEFAULT 'Média'",
+        "fase": "TEXT DEFAULT 'backlog'",
+        "data_prazo": "TEXT DEFAULT ''"
+    }
+    
+    for col, tipo in colunas_para_adicionar.items():
+        if col not in colunas_existentes:
+            try:
+                cursor.execute(f"ALTER TABLE lembretes ADD COLUMN {col} {tipo}")
+            except Exception:
+                pass
     
     # Histórico de consultas estratégicas (Telegram, Web, CLI)
     cursor.execute("""
@@ -194,7 +218,6 @@ def init_db():
     existentes = dict(cursor.fetchall())
     
     for chave, dados in configs_completas.items():
-        # Se não existe ou se o conteúdo do banco for significativamente menor que a base do disco (menos de 2000 chars)
         if chave not in existentes or len(existentes[chave]) < 2000:
             cursor.execute("""
                 INSERT INTO configuracao_agentes (chave, cargo, meta, diretrizes, data_atualizacao)
@@ -250,11 +273,100 @@ def restaurar_padrao_agentes():
     for chave, dados in padrao.items():
         salvar_configuracao_agente(chave, dados["cargo"], dados["meta"], dados["diretrizes"])
 
-def salvar_lembrete(texto: str):
+def criar_tarefa_kanban(
+    texto: str,
+    descricao: str = "",
+    responsavel: str = "Fundador",
+    prioridade: str = "Média",
+    fase: str = "backlog",
+    data_prazo: str = ""
+) -> int:
+    """Cria um novo card de tarefa no Kanban Executivo."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO lembretes (texto, data_criacao) VALUES (?, ?)", 
-                   (texto, datetime.now().strftime("%d/%m/%Y %H:%M")))
+    status = "concluido" if fase == "concluido" else "pendente"
+    cursor.execute("""
+        INSERT INTO lembretes (texto, descricao, responsavel, prioridade, fase, status, data_criacao, data_prazo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        texto.strip(),
+        descricao.strip(),
+        responsavel,
+        prioridade,
+        fase,
+        status,
+        datetime.now().strftime("%d/%m/%Y %H:%M"),
+        data_prazo.strip()
+    ))
+    novo_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return novo_id
+
+def salvar_lembrete(texto: str):
+    """Função legada de lembrete simples (cria no backlog)."""
+    criar_tarefa_kanban(texto=texto, fase="backlog")
+
+def listar_tarefas_kanban() -> list[dict]:
+    """Retorna todas as tarefas formatadas como dicionário com todos os metadados do Kanban."""
+    init_db()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, texto, descricao, responsavel, prioridade, fase, status, data_criacao, data_prazo
+        FROM lembretes
+        ORDER BY id DESC
+    """)
+    linhas = cursor.fetchall()
+    conn.close()
+    
+    tarefas = []
+    for row in linhas:
+        fase = row[5] if row[5] in ["backlog", "planejamento", "execucao", "concluido"] else ("concluido" if row[6] == "concluido" else "backlog")
+        tarefas.append({
+            "id": row[0],
+            "texto": row[1],
+            "descricao": row[2] or "",
+            "responsavel": row[3] or "Fundador",
+            "prioridade": row[4] or "Média",
+            "fase": fase,
+            "status": row[6] or "pendente",
+            "data_criacao": row[7],
+            "data_prazo": row[8] or ""
+        })
+    return tarefas
+
+def atualizar_fase_tarefa(item_id: int, nova_fase: str):
+    """Atualiza a fase da tarefa no Kanban (backlog -> planejamento -> execucao -> concluido)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    status = "concluido" if nova_fase == "concluido" else "pendente"
+    cursor.execute("""
+        UPDATE lembretes 
+        SET fase = ?, status = ? 
+        WHERE id = ?
+    """, (nova_fase, status, item_id))
+    conn.commit()
+    conn.close()
+
+def atualizar_tarefa_completa(
+    item_id: int,
+    texto: str,
+    descricao: str,
+    responsavel: str,
+    prioridade: str,
+    fase: str,
+    data_prazo: str = ""
+):
+    """Atualiza todos os dados de uma tarefa no Kanban."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    status = "concluido" if fase == "concluido" else "pendente"
+    cursor.execute("""
+        UPDATE lembretes 
+        SET texto = ?, descricao = ?, responsavel = ?, prioridade = ?, fase = ?, status = ?, data_prazo = ?
+        WHERE id = ?
+    """, (texto.strip(), descricao.strip(), responsavel, prioridade, fase, status, data_prazo.strip(), item_id))
     conn.commit()
     conn.close()
 
@@ -272,17 +384,14 @@ def listar_lembretes(status: str = "pendente"):
 def listar_lembretes_pendentes():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, texto FROM lembretes WHERE status = 'pendente' ORDER BY id DESC")
+    cursor.execute("SELECT id, texto FROM lembretes WHERE status != 'concluido' AND fase != 'concluido' ORDER BY id DESC")
     itens = cursor.fetchall()
     conn.close()
     return itens
 
 def alternar_status_lembrete(item_id: int, novo_status: str = "concluido"):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE lembretes SET status = ? WHERE id = ?", (novo_status, item_id))
-    conn.commit()
-    conn.close()
+    nova_fase = "concluido" if novo_status == "concluido" else "backlog"
+    atualizar_fase_tarefa(item_id, nova_fase)
 
 def excluir_lembrete(item_id: int):
     conn = get_connection()

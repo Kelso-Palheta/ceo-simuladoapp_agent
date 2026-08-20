@@ -275,11 +275,11 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
         st.markdown(f"**Demanda:** *{dem}*")
         
         # Ações de Exportação
-        col_exp1, col_exp2, col_exp3 = st.columns(3)
+        col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
         
         with col_exp1:
             st.download_button(
-                label="📥 Baixar Markdown (.md)",
+                label="📥 Baixar em Markdown",
                 data=res,
                 file_name="plano_executivo_simuladoapp.md",
                 mime="text/markdown",
@@ -292,7 +292,7 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
                 with open(caminho_pdf, "rb") as f_pdf:
                     bytes_pdf = f_pdf.read()
                 st.download_button(
-                    label="📄 Baixar Relatório em PDF",
+                    label="📄 Baixar em PDF",
                     data=bytes_pdf,
                     file_name="plano_executivo_simuladoapp.pdf",
                     mime="application/pdf",
@@ -304,7 +304,19 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
                 st.error(f"Erro ao gerar PDF: {e_pdf}")
                 
         with col_exp3:
-            if st.button("📓 Sincronizar com Notion", use_container_width=True):
+            if st.button("📋 Criar Card no Kanban", use_container_width=True):
+                from database import criar_tarefa_kanban
+                criar_tarefa_kanban(
+                    texto=f"Executar plano: {dem[:60]}...",
+                    descricao=f"Deliberação Executiva:\n\n{res[:1500]}...",
+                    responsavel="👑 CEO & Estratégia",
+                    prioridade="Alta",
+                    fase="planejamento"
+                )
+                st.success("✅ Card criado com sucesso na coluna de Planejamento do Kanban!")
+                
+        with col_exp4:
+            if st.button("📓 Enviar ao Notion", use_container_width=True):
                 with st.spinner("Sincronizando com o Notion..."):
                     sucesso, msg_notion = criar_pagina_deliberacao(res, dem, canal="Dashboard Web")
                     if sucesso:
@@ -315,46 +327,183 @@ if aba_selecionada == "💬 Mesa Redonda (Chat)":
         st.markdown("---")
         st.markdown(res)
 
-# ----------------- ABA 2: QUADRO DE TAREFAS -----------------
+# ----------------- ABA 2: QUADRO DE TAREFAS (KANBAN EXECUTIVO) -----------------
 elif aba_selecionada == "📋 Quadro de Tarefas":
-    st.markdown("<div class='main-header'>📋 Quadro de Lembretes & Tarefas</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-header'>Gerencie seus lembretes estratégicos sincronizados com o Telegram.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-header'>📋 Kanban Executivo de Tarefas & Ações</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>Acompanhe e gerencie as iniciativas do SimuladoApp em tempo real sem precisar abrir ferramentas externas.</div>", unsafe_allow_html=True)
     
-    with st.expander("➕ Adicionar Novo Lembrete / Tarefa"):
-        with st.form("form_tarefa"):
-            novo_texto = st.text_input("Descrição da Tarefa:")
-            btn_add = st.form_submit_button("Salvar Tarefa")
-            if btn_add and novo_texto.strip():
-                salvar_lembrete(novo_texto.strip())
-                st.success("Tarefa salva com sucesso!")
+    from database import (
+        criar_tarefa_kanban,
+        listar_tarefas_kanban,
+        atualizar_fase_tarefa,
+        atualizar_tarefa_completa,
+        excluir_lembrete
+    )
+    
+    todas_tarefas = listar_tarefas_kanban()
+    
+    # Métricas de Resumo
+    m_backlog = len([t for t in todas_tarefas if t["fase"] == "backlog"])
+    m_plan = len([t for t in todas_tarefas if t["fase"] == "planejamento"])
+    m_exec = len([t for t in todas_tarefas if t["fase"] == "execucao"])
+    m_conc = len([t for t in todas_tarefas if t["fase"] == "concluido"])
+    
+    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+    col_m1.metric("Total de Ações", len(todas_tarefas))
+    col_m2.metric("📌 Backlog", m_backlog)
+    col_m3.metric("⚙️ Planejamento", m_plan)
+    col_m4.metric("🚀 Execução", m_exec)
+    col_m5.metric("✅ Concluídas", m_conc)
+    
+    st.divider()
+
+    # Criação Rápida de Tarefa
+    with st.expander("➕ Criar Nova Tarefa / Ação Executiva", expanded=False):
+        with st.form("form_nova_tarefa_kanban"):
+            c_f1, c_f2 = st.columns([3, 1])
+            with c_f1:
+                t_titulo = st.text_input("Título da Tarefa / Ação:")
+                t_desc = st.text_area("Descrição / Checklist / Detalhes:", height=70)
+            with c_f2:
+                t_resp = st.selectbox("Responsável:", [
+                    "👤 Fundador",
+                    "👑 CEO & Estratégia",
+                    "💻 Tecnologia (CTO)",
+                    "💰 Financeiro (CFO)",
+                    "📈 Tráfego & Marketing (Growth)",
+                    "✍️ Conteúdo & Redes",
+                    "🎓 Pedagógico (CPO)",
+                    "🎧 Suporte (CS)",
+                    "⚖️ Jurídico (Legal)"
+                ])
+                t_prio = st.selectbox("Prioridade:", ["🔴 Alta", "🟡 Média", "🟢 Baixa"])
+                t_fase_init = st.selectbox("Fase Inicial:", [
+                    ("backlog", "📌 Backlog"),
+                    ("planejamento", "⚙️ Planejamento"),
+                    ("execucao", "🚀 Execução"),
+                    ("concluido", "✅ Concluído")
+                ], format_func=lambda x: x[1])[0]
+                t_prazo = st.text_input("Prazo (ex: 28/08 ou Sexta):", placeholder="Opcional")
+                
+            btn_add_k = st.form_submit_button("🚀 Criar Card no Kanban", type="primary", use_container_width=True)
+            if btn_add_k and t_titulo.strip():
+                prio_limpa = t_prio.replace("🔴 ", "").replace("🟡 ", "").replace("🟢 ", "")
+                criar_tarefa_kanban(
+                    texto=t_titulo.strip(),
+                    descricao=t_desc.strip(),
+                    responsavel=t_resp,
+                    prioridade=prio_limpa,
+                    fase=t_fase_init,
+                    data_prazo=t_prazo.strip()
+                )
+                st.success("Card criado com sucesso!")
                 st.rerun()
 
-    filtro = st.radio("Filtrar por:", ["Pendente", "Concluído", "Todos"], horizontal=True)
-    mapa_filtro = {"Pendente": "pendente", "Concluído": "concluido", "Todos": "todos"}
-    
-    itens = listar_lembretes(mapa_filtro[filtro])
-    
-    if not itens:
-        st.info("Nenhuma tarefa encontrada neste status.")
+    # Filtros do Quadro
+    c_flt1, c_flt2, c_flt3 = st.columns([2, 2, 1.5])
+    with c_flt1:
+        filtro_resp = st.selectbox("Filtrar por Responsável:", ["Todos"] + sorted(list(set([t["responsavel"] for t in todas_tarefas]))))
+    with c_flt2:
+        filtro_prio = st.selectbox("Filtrar por Prioridade:", ["Todas", "Alta", "Média", "Baixa"])
+    with c_flt3:
+        modo_visao = st.radio("Visualização:", ["📊 Kanban", "📋 Lista"], horizontal=True)
+
+    # Aplica Filtros
+    tarefas_filtradas = todas_tarefas
+    if filtro_resp != "Todos":
+        tarefas_filtradas = [t for t in tarefas_filtradas if t["responsavel"] == filtro_resp]
+    if filtro_prio != "Todas":
+        tarefas_filtradas = [t for t in tarefas_filtradas if t["prioridade"] == filtro_prio]
+
+    # Função auxiliar para renderizar um card
+    def render_card(t):
+        badge_prio = "🔴" if t["prioridade"] == "Alta" else ("🟡" if t["prioridade"] == "Média" else "🟢")
+        with st.container(border=True):
+            st.markdown(f"**{badge_prio} [{t['id']}] {t['texto']}**")
+            st.caption(f"🎯 `{t['responsavel']}`" + (f" | ⏰ `{t['data_prazo']}`" if t['data_prazo'] else ""))
+            
+            if t["descricao"]:
+                with st.expander("Detalhes"):
+                    st.write(t["descricao"])
+            
+            # Botões de Movimentação entre Fases
+            col_b1, col_b2, col_b3 = st.columns([1, 1, 0.8])
+            
+            fases_ordem = ["backlog", "planejamento", "execucao", "concluido"]
+            idx_atual = fases_ordem.index(t["fase"]) if t["fase"] in fases_ordem else 0
+            
+            with col_b1:
+                if idx_atual > 0:
+                    if st.button("⬅️", key=f"rec_{t['id']}", help=f"Mover para {fases_ordem[idx_atual-1]}"):
+                        atualizar_fase_tarefa(t["id"], fases_ordem[idx_atual-1])
+                        st.rerun()
+            with col_b2:
+                if idx_atual < len(fases_ordem) - 1:
+                    if st.button("➡️", key=f"adv_{t['id']}", help=f"Avançar para {fases_ordem[idx_atual+1]}"):
+                        atualizar_fase_tarefa(t["id"], fases_ordem[idx_atual+1])
+                        st.rerun()
+            with col_b3:
+                if st.button("🗑️", key=f"delk_{t['id']}", help="Excluir tarefa"):
+                    excluir_lembrete(t["id"])
+                    st.rerun()
+
+    # MODO 1: QUADRO KANBAN
+    if modo_visao == "📊 Kanban":
+        col_k1, col_k2, col_k3, col_k4 = st.columns(4)
+        
+        with col_k1:
+            st.markdown("### 📌 Backlog")
+            t_backlog = [t for t in tarefas_filtradas if t["fase"] == "backlog"]
+            if not t_backlog:
+                st.caption("Nenhum item")
+            for t in t_backlog:
+                render_card(t)
+                
+        with col_k2:
+            st.markdown("### ⚙️ Planejamento")
+            t_plan = [t for t in tarefas_filtradas if t["fase"] == "planejamento"]
+            if not t_plan:
+                st.caption("Nenhum item")
+            for t in t_plan:
+                render_card(t)
+                
+        with col_k3:
+            st.markdown("### 🚀 Em Execução")
+            t_exec = [t for t in tarefas_filtradas if t["fase"] == "execucao"]
+            if not t_exec:
+                st.caption("Nenhum item")
+            for t in t_exec:
+                render_card(t)
+                
+        with col_k4:
+            st.markdown("### ✅ Concluído")
+            t_conc = [t for t in tarefas_filtradas if t["fase"] == "concluido"]
+            if not t_conc:
+                st.caption("Nenhum item")
+            for t in t_conc:
+                render_card(t)
+
+    # MODO 2: LISTA DETALHADA
     else:
-        for item_id, texto, status, data_criacao in itens:
-            col_t1, col_t2, col_t3 = st.columns([4, 1.2, 0.8])
-            with col_t1:
-                if status == "concluido":
-                    st.markdown(f"~~**[{item_id}]** {texto}~~ <small>({data_criacao})</small>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"📌 **[{item_id}]** {texto} <br><small style='color:gray;'>Registrado em: {data_criacao}</small>", unsafe_allow_html=True)
-            with col_t2:
-                novo_st = "pendente" if status == "concluido" else "concluido"
-                btn_txt = "↩️ Reabrir" if status == "concluido" else "✅ Concluir"
-                if st.button(btn_txt, key=f"status_{item_id}", use_container_width=True):
-                    alternar_status_lembrete(item_id, novo_st)
-                    st.rerun()
-            with col_t3:
-                if st.button("🗑️", key=f"del_{item_id}", use_container_width=True):
-                    excluir_lembrete(item_id)
-                    st.rerun()
-            st.divider()
+        st.markdown("### 📋 Lista Completa de Tarefas")
+        if not tarefas_filtradas:
+            st.info("Nenhuma tarefa cadastrada.")
+        else:
+            for t in tarefas_filtradas:
+                c_l1, c_l2, c_l3, c_l4 = st.columns([3.5, 1.5, 1.5, 0.8])
+                with c_l1:
+                    st.markdown(f"**[{t['id']}] {t['texto']}**")
+                    if t["descricao"]:
+                        st.caption(t["descricao"])
+                with c_l2:
+                    st.write(f"🎯 `{t['responsavel']}`")
+                with c_l3:
+                    st.write(f"📊 `{t['fase'].upper()}` | Prioridade: `{t['prioridade']}`")
+                with c_l4:
+                    if st.button("🗑️", key=f"dell_{t['id']}"):
+                        excluir_lembrete(t["id"])
+                        st.rerun()
+                st.divider()
 
 # ----------------- ABA 3: HISTÓRICO DE DECISÕES -----------------
 elif aba_selecionada == "📜 Histórico de Decisões":
@@ -371,8 +520,8 @@ elif aba_selecionada == "📜 Histórico de Decisões":
                 st.markdown(f"**Canal de Origem:** `{canal}` | **Data:** `{data_reg}`")
                 st.markdown(f"**Demanda Registrada:**\n> {demanda}")
                 
-                # Ações Rápidas de Download e Notion para cada item do histórico
-                col_h1, col_h2, col_h3 = st.columns(3)
+                # Ações Rápidas de Download, Kanban e Notion para cada item do histórico
+                col_h1, col_h2, col_h3, col_h4 = st.columns(4)
                 with col_h1:
                     st.download_button(
                         label="📥 Baixar Markdown (.md)",
@@ -401,6 +550,18 @@ elif aba_selecionada == "📜 Histórico de Decisões":
                         st.caption(f"PDF indisponível: {err_pdf}")
                         
                 with col_h3:
+                    if st.button("📋 Criar no Kanban", key=f"btn_kanban_{h_id}", use_container_width=True):
+                        from database import criar_tarefa_kanban
+                        criar_tarefa_kanban(
+                            texto=f"Executar plano #{h_id}: {demanda[:50]}...",
+                            descricao=f"Deliberação Executiva ({data_reg}):\n\n{resposta[:1500]}...",
+                            responsavel="👑 CEO & Estratégia",
+                            prioridade="Alta",
+                            fase="planejamento"
+                        )
+                        st.success("✅ Card criado na coluna de Planejamento do Kanban!")
+
+                with col_h4:
                     if st.button("📓 Enviar ao Notion", key=f"btn_notion_{h_id}", use_container_width=True):
                         with st.spinner("Sincronizando com o Notion..."):
                             ok, msg_n = criar_pagina_deliberacao(resposta, demanda, canal=canal)
