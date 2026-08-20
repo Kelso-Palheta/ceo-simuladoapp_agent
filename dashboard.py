@@ -405,7 +405,7 @@ elif aba_selecionada == "👥 Membros do Conselho":
     
     from database import obter_configuracoes_agentes, salvar_configuracao_agente, restaurar_padrao_agentes
     
-    tab_editor, tab_cards = st.tabs(["🎛️ Editar Diretrizes dos Agentes", "📋 Cartões do Conselho"])
+    tab_editor, tab_docs, tab_cards = st.tabs(["🎛️ Diretrizes dos Agentes", "📚 Base de Conhecimento do Negócio (Arquivos MD)", "👥 Cartões do Conselho"])
     
     configs_atuais = obter_configuracoes_agentes()
     
@@ -422,14 +422,14 @@ elif aba_selecionada == "👥 Membros do Conselho":
         with col_reset:
             st.write("")
             st.write("")
-            if st.button("🔄 Restaurar Padrões de Fábrica", use_container_width=True):
+            if st.button("🔄 Forçar Sincronização com Arquivos", use_container_width=True):
                 restaurar_padrao_agentes()
-                st.success("Diretrizes de todos os agentes restauradas para o padrão inicial!")
+                st.success("Diretrizes e bases de conhecimento de todos os agentes recarregadas do disco com sucesso!")
                 st.rerun()
 
         dados_agente = configs_atuais[agente_chave_sel]
         
-        st.markdown(f"### ⚙️ Base de Conhecimento: **{dados_agente['cargo']}**")
+        st.markdown(f"### ⚙️ Base de Conhecimento Ativa: **{dados_agente['cargo']}**")
         st.caption(f"📅 Última atualização: `{dados_agente.get('data_atualizacao', 'Padrão Inicial')}` | 📊 Volume: `{len(dados_agente['diretrizes'])} caracteres`")
 
         subtab_edit, subtab_view = st.tabs(["✏️ Editar Diretrizes & Personas", "📖 Visualizar Documento Completo (Renderizado)"])
@@ -455,6 +455,31 @@ elif aba_selecionada == "👥 Membros do Conselho":
         with subtab_view:
             st.markdown("#### 📄 Documento de Diretrizes Ativo no Agente:")
             st.markdown(dados_agente["diretrizes"])
+
+    with tab_docs:
+        st.markdown("### 📚 Arquivos da Base de Conhecimento Compartilhada")
+        st.caption("Documentos institucionais, manuais operacionais e matrizes estratégicas que embasam o entendimento 360° do SimuladoApp.")
+        
+        dir_conhecimento = "conhecimento"
+        if os.path.exists(dir_conhecimento):
+            arquivos_md = sorted([f for f in os.listdir(dir_conhecimento) if f.endswith(".md")])
+            
+            col_doc_sel, col_doc_info = st.columns([2.5, 1])
+            with col_doc_sel:
+                doc_escolhido = st.selectbox("Selecione um documento da empresa para ler:", arquivos_md)
+            
+            caminho_doc = os.path.join(dir_conhecimento, doc_escolhido)
+            with open(caminho_doc, "r", encoding="utf-8") as f_doc:
+                conteudo_doc = f_doc.read()
+                
+            with col_doc_info:
+                st.write("")
+                st.metric("Tamanho do Documento", f"{len(conteudo_doc)} chars")
+                
+            with st.expander(f"📖 Visualizar '{doc_escolhido}' ({len(conteudo_doc.splitlines())} linhas)", expanded=True):
+                st.markdown(conteudo_doc)
+        else:
+            st.warning("Pasta de conhecimento não encontrada no ambiente.")
 
     with tab_cards:
         membros_info = [

@@ -109,13 +109,14 @@ def init_db():
         )
     """)
     
-    # Sincroniza com o conhecimento completo caso a tabela esteja vazia ou com textos curtos antigos
+    # Sincroniza com o conhecimento completo caso a tabela esteja vazia ou com textos curtos/desatualizados
     configs_completas = obter_config_padrao_completa()
     cursor.execute("SELECT chave, diretrizes FROM configuracao_agentes")
     existentes = dict(cursor.fetchall())
     
     for chave, dados in configs_completas.items():
-        if chave not in existentes or len(existentes[chave]) < 300:
+        # Se não existe ou se o conteúdo do banco for significativamente menor que a base do disco (menos de 2000 chars)
+        if chave not in existentes or len(existentes[chave]) < 2000:
             cursor.execute("""
                 INSERT INTO configuracao_agentes (chave, cargo, meta, diretrizes, data_atualizacao)
                 VALUES (?, ?, ?, ?, ?)
