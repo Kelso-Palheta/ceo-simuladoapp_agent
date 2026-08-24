@@ -30,7 +30,7 @@ def criar_llm():
     """Retorna a instância do modelo configurado (Gemini prioritário ou Groq)."""
     gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key:
-        modelo_gemini = os.getenv("GEMINI_MODEL", "gemini/gemini-3.6-flash")
+        modelo_gemini = os.getenv("GEMINI_MODEL", "gemini/gemini-flash-latest")
         return LLM(
             model=modelo_gemini,
             api_key=gemini_key,
@@ -45,6 +45,23 @@ def criar_llm():
             temperature=0.3,
             max_tokens=4000
         )
+
+import asyncio
+import logging
+
+async def _executar_crew_com_retry(crew_obj, max_tentativas=3):
+    """Executa a tripulação com retry automático caso ocorra limite temporário de requisições (429/503)."""
+    for tentativa in range(1, max_tentativas + 1):
+        try:
+            return await crew_obj.kickoff_async()
+        except Exception as e:
+            msg = str(e)
+            if ("429" in msg or "RESOURCE_EXHAUSTED" in msg or "503" in msg or "quota" in msg.lower()) and tentativa < max_tentativas:
+                tempo_espera = 15 * tentativa
+                logging.warning(f"Limite temporário de RPM atingido (429/503). Aguardando {tempo_espera}s para tentar novamente (tentativa {tentativa}/{max_tentativas})...")
+                await asyncio.sleep(tempo_espera)
+                continue
+            raise e
 
 from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
 from web_search import pesquisar_na_web
@@ -207,7 +224,7 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
             process=Process.sequential,
             verbose=False
         )
-        resultado = await tripulacao.kickoff_async()
+        resultado = await _executar_crew_com_retry(tripulacao)
         return f"**[{titulo_agente}]**\n\n{str(resultado)}"
 
     # CASO 2: Consulta a um subgrupo específico de agentes (ex: CTO + CFO)
@@ -233,7 +250,7 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
             process=Process.sequential,
             verbose=False
         )
-        resultado = await tripulacao.kickoff_async()
+        resultado = await _executar_crew_com_retry(tripulacao)
         return str(resultado)
 
     # CASO 3: Mesa Completa (Conselho Geral Orquestrado pelo CEO)
@@ -262,5 +279,5 @@ async def executar_consulta_estrategica(demanda_usuario: str, agentes_alvo: list
             process=Process.sequential,
             verbose=False
         )
-        resultado = await conselho.kickoff_async()
+        resultado = await _executar_crew_com_retry(conselho)
         return str(resultado)
