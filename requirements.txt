@@ -11,3 +11,5 @@ notion-client
 groq
 pypdf
 python-docx
+google-genai
+langchain-google-genai
