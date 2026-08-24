@@ -14,22 +14,37 @@ from database import obter_configuracoes_agentes
 
 litellm.drop_params = True
 
-# Configuração com o provedor Groq
+# Provedores de LLM: Google Gemini (Padrão de alta capacidade) ou Groq
+gemini_api_key = os.getenv("GEMINI_API_KEY")
 groq_api_key = os.getenv("GROQ_API_KEY")
-os.environ["GROQ_API_KEY"] = groq_api_key
-os.environ["OPENAI_API_KEY"] = groq_api_key
-os.environ["OPENAI_API_BASE"] = "https://api.groq.com/openai/v1"
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/openai/gpt-oss-20b")
+if gemini_api_key:
+    os.environ["GEMINI_API_KEY"] = gemini_api_key
+
+if groq_api_key:
+    os.environ["GROQ_API_KEY"] = groq_api_key
+    os.environ["OPENAI_API_KEY"] = groq_api_key
+    os.environ["OPENAI_API_BASE"] = "https://api.groq.com/openai/v1"
 
 def criar_llm():
-    return LLM(
-        model=GROQ_MODEL,
-        api_key=groq_api_key,
-        base_url="https://api.groq.com/openai/v1",
-        temperature=0.3,
-        max_tokens=4000
-    )
+    """Retorna a instância do modelo configurado (Gemini prioritário ou Groq)."""
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key:
+        modelo_gemini = os.getenv("GEMINI_MODEL", "gemini/gemini-3.6-flash")
+        return LLM(
+            model=modelo_gemini,
+            api_key=gemini_key,
+            temperature=0.3
+        )
+    else:
+        modelo_groq = os.getenv("GROQ_MODEL", "openai/openai/gpt-oss-120b")
+        return LLM(
+            model=modelo_groq,
+            api_key=os.getenv("GROQ_API_KEY"),
+            base_url="https://api.groq.com/openai/v1",
+            temperature=0.3,
+            max_tokens=4000
+        )
 
 from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
 
