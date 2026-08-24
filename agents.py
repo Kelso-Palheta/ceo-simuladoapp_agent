@@ -47,6 +47,7 @@ def criar_llm():
         )
 
 from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
+from web_search import pesquisar_na_web
 
 MAPA_ICONES = {
     "ceo": "👑",
@@ -60,7 +61,7 @@ MAPA_ICONES = {
 }
 
 def instanciar_agente_individual(chave: str, configs: dict | None = None, llm_instance=None):
-    """Instancia um único agente sob demanda com contexto enxuto e sem duplicações."""
+    """Instancia um único agente sob demanda com contexto enxuto e ferramentas de busca."""
     if configs is None:
         configs = obter_configuracoes_agentes()
     if llm_instance is None:
@@ -80,11 +81,15 @@ def instanciar_agente_individual(chave: str, configs: dict | None = None, llm_in
     else:
         contexto_completo = diretrizes_texto
 
+    # Agentes estratégicos e de marketing ganham a ferramenta de busca web em tempo real
+    tools_agente = [pesquisar_na_web] if chave_norm in ["growth", "ceo", "conteudo", "cfo", "cpo", "cto"] else []
+
     agente = Agent(
         role=f"{dados['cargo']} do SimuladoApp",
         goal=dados['meta'],
         backstory=contexto_completo,
         llm=llm_instance,
+        tools=tools_agente,
         verbose=False,
         allow_delegation=(chave_norm == "ceo")
     )
