@@ -26,41 +26,80 @@ if groq_api_key:
     os.environ["OPENAI_API_KEY"] = groq_api_key
     os.environ["OPENAI_API_BASE"] = "https://api.groq.com/openai/v1"
 
-def criar_llm():
-    """Retorna a instância do modelo configurado (Gemini prioritário ou Groq)."""
+def criar_llm(modelo_override: str | None = None, usar_groq: bool = False):
+    """Retorna a instância do modelo configurado (Gemini prioritário ou Groq) com suporte a fallback dinâmico."""
     gemini_key = os.getenv("GEMINI_API_KEY")
-    if gemini_key:
-        modelo_gemini = os.getenv("GEMINI_MODEL", "gemini/gemini-flash-latest")
+    groq_key = os.getenv("GROQ_API_KEY")
+    
+    if usar_groq and groq_key:
+        modelo_groq = os.getenv("GROQ_MODEL", "openai/openai/gpt-oss-120b")
+        return LLM(
+            model=modelo_groq,
+            api_key=groq_key,
+            base_url="https://api.groq.com/openai/v1",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+    if gemini_key and not usar_groq:
+        modelo_gemini = modelo_override or os.getenv("GEMINI_MODEL", "gemini/gemini-3.5-flash")
         return LLM(
             model=modelo_gemini,
             api_key=gemini_key,
             temperature=0.3
         )
-    else:
+    elif groq_key:
         modelo_groq = os.getenv("GROQ_MODEL", "openai/openai/gpt-oss-120b")
         return LLM(
             model=modelo_groq,
-            api_key=os.getenv("GROQ_API_KEY"),
+            api_key=groq_key,
             base_url="https://api.groq.com/openai/v1",
             temperature=0.3,
             max_tokens=4000
         )
+    else:
+        return LLM(model="gemini/gemini-3.5-flash", api_key=gemini_key)
 
 import asyncio
 import logging
 
 async def _executar_crew_com_retry(crew_obj, max_tentativas=3):
-    """Executa a tripulação com retry automático caso ocorra limite temporário de requisições (429/503)."""
-    for tentativa in range(1, max_tentativas + 1):
+    """Executa a tripulação com rotação inteligente de modelos e fallback automático em caso de 503 (alta demanda) ou 429."""
+    modelos_rotacao = [
+        os.getenv("GEMINI_MODEL", "gemini/gemini-3.5-flash"),
+        "gemini/gemini-3.6-flash",
+        "gemini/gemini-flash-latest"
+    ]
+    
+    for tentativa in range(max_tentativas):
         try:
             return await crew_obj.kickoff_async()
         except Exception as e:
             msg = str(e)
-            if ("429" in msg or "RESOURCE_EXHAUSTED" in msg or "503" in msg or "quota" in msg.lower()) and tentativa < max_tentativas:
-                tempo_espera = 15 * tentativa
-                logging.warning(f"Limite temporário de RPM atingido (429/503). Aguardando {tempo_espera}s para tentar novamente (tentativa {tentativa}/{max_tentativas})...")
-                await asyncio.sleep(tempo_espera)
-                continue
+            is_transient = any(term in msg.lower() for term in ["503", "429", "resource_exhausted", "unavailable", "quota", "high demand"])
+            
+            if is_transient and tentativa < max_tentativas - 1:
+                # Tentativa 1: Rotaciona para modelo alternativo do Gemini
+                if tentativa == 0:
+                    prox_modelo = modelos_rotacao[1]
+                    logging.warning(f"Google 503/429 detectado. Rotacionando automaticamente para {prox_modelo}...")
+                    novo_llm = criar_llm(modelo_override=prox_modelo)
+                    for ag in crew_obj.agents:
+                        ag.llm = novo_llm
+                    await asyncio.sleep(2)
+                    continue
+                
+                # Tentativa 2: Se o Gemini persistir em alta demanda, faz fallback transparente para Groq
+                elif tentativa == 1 and os.getenv("GROQ_API_KEY"):
+                    logging.warning("Servidores Gemini ocupados. Alternando resposta em fallback transparente para Groq...")
+                    llm_groq = criar_llm(usar_groq=True)
+                    for ag in crew_obj.agents:
+                        ag.llm = llm_groq
+                    await asyncio.sleep(2)
+                    continue
+                else:
+                    await asyncio.sleep(8)
+                    continue
             raise e
 
 from database import obter_configuracoes_agentes, carregar_conhecimento_total_agente
